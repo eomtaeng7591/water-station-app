@@ -27,6 +27,9 @@ export async function shareOrderReceipt(order: Order): Promise<void> {
   const riderRow = (order as any).rider_name
     ? `<tr><td class="key">Rider</td><td class="val">${(order as any).rider_name}</td></tr>`
     : '';
+  const gcashRefRow = order.gcash_ref
+    ? `<tr><td class="key">GCash Ref</td><td class="val" style="color:#6D28D9;font-weight:700">${order.gcash_ref}</td></tr>`
+    : '';
   const remarksRow = order.remarks
     ? `<tr><td class="key">Note</td><td class="val" style="font-style:italic">${order.remarks}</td></tr>`
     : '';
@@ -161,7 +164,7 @@ export async function shareOrderReceipt(order: Order): Promise<void> {
   <span class="pay-badge">${order.payment_type}</span>
 </div>
 
-${remarksRow ? `<table>${remarksRow}</table>` : ''}
+${(gcashRefRow || remarksRow) ? `<table>${gcashRefRow}${remarksRow}</table>` : ''}
 
 <div class="footer">
   <strong>Thank you for your purchase!</strong><br/>

@@ -49,6 +49,7 @@ export default function OrderScreen() {
   const [riders, setRiders] = useState<Rider[]>([]);
   const [selectedRider, setSelectedRider] = useState<Rider | null>(null);
   const [dueDays, setDueDays] = useState<number | null>(null);
+  const [gcashRef, setGcashRef] = useState('');
 
   const [todayOrders, setTodayOrders] = useState<Order[]>([]);
   const [pendingDeliveries, setPendingDeliveries] = useState<Order[]>([]);
@@ -166,7 +167,7 @@ export default function OrderScreen() {
     setSearchResults([]);
   };
 
-  const handleSubmit = async (payment: PaymentType) => {
+  const handleSubmit = async (payment: PaymentType, ref?: string) => {
     if (!quantity || parseInt(quantity) < 1) {
       Alert.alert('Error', 'Please enter quantity.');
       return;
@@ -190,6 +191,7 @@ export default function OrderScreen() {
         payment_type: payment,
         delivery_status: orderType === 'DELIVERY' ? deliveryStatus : 'COMPLETED' as const,
         remarks: remarks || undefined,
+        gcash_ref: ref || null,
         rider_id: selectedRider?.rider_id ?? null,
         due_date: dueDate,
       };
@@ -222,6 +224,7 @@ export default function OrderScreen() {
 
       setQuantity('');
       setRemarks('');
+      setGcashRef('');
       setSelectedCustomer(null);
       setSelectedRider(null);
       setDueDays(null);
@@ -405,7 +408,23 @@ export default function OrderScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.payBtn, { borderColor: COLORS.ewallet }]}
-              onPress={() => handleSubmit('GCASH')}
+              onPress={() => {
+                if (!quantity || parseInt(quantity) < 1) {
+                  Alert.alert('Error', 'Please enter quantity.');
+                  return;
+                }
+                Alert.prompt(
+                  '📱 Gcash Reference',
+                  'Enter GCash reference number (optional)',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Confirm', onPress: (ref) => handleSubmit('GCASH', ref?.trim() || undefined) },
+                  ],
+                  'plain-text',
+                  gcashRef,
+                  'number-pad',
+                );
+              }}
               disabled={loading}
             >
               <Text style={[styles.payBtnText, { color: COLORS.ewallet }]}>📱 Gcash</Text>

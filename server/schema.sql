@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS orders (
   payment_type    VARCHAR(10)   NOT NULL,
   delivery_status VARCHAR(10)   NOT NULL DEFAULT 'COMPLETED',
   remarks         TEXT,
+  gcash_ref       VARCHAR(50),
   rider_id        INT,
   receipt_no      VARCHAR(50),
   created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

@@ -275,12 +275,12 @@ app.get('/orders/customer/:id', auth, async (req, res) => {
 });
 
 app.post('/orders', auth, async (req, res) => {
-  const { customer_id, order_type, unit_price, quantity, total_amount, payment_type, delivery_status, remarks, rider_id, due_date } = req.body;
+  const { customer_id, order_type, unit_price, quantity, total_amount, payment_type, delivery_status, remarks, gcash_ref, rider_id, due_date } = req.body;
   const receipt_no = await generateReceiptNo();
   const [result] = await pool.query(
-    `INSERT INTO orders (customer_id, order_type, unit_price, quantity, total_amount, payment_type, delivery_status, remarks, rider_id, receipt_no)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [customer_id || null, order_type, unit_price, quantity, total_amount, payment_type, delivery_status, remarks || null, rider_id || null, receipt_no]
+    `INSERT INTO orders (customer_id, order_type, unit_price, quantity, total_amount, payment_type, delivery_status, remarks, gcash_ref, rider_id, receipt_no)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [customer_id || null, order_type, unit_price, quantity, total_amount, payment_type, delivery_status, remarks || null, gcash_ref || null, rider_id || null, receipt_no]
   );
   const order_id = result.insertId;
 

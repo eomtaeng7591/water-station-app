@@ -45,6 +45,7 @@ export interface Order {
   payment_type: PaymentType;
   delivery_status: DeliveryStatus;
   remarks: string | null;
+  gcash_ref: string | null;
   receipt_no: string | null;
   rider_id: number | null;
   created_at: string;
@@ -68,6 +69,7 @@ export interface OrderInput {
   payment_type: PaymentType;
   delivery_status: DeliveryStatus;
   remarks?: string;
+  gcash_ref?: string | null;
   rider_id?: number | null;
   due_date?: string | null;
 }
