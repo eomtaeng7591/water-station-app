@@ -397,6 +397,14 @@ app.get('/inventory/logs', auth, async (req, res) => {
 // CREDITS
 // ═══════════════════════════════════════════════════════
 
+app.get('/credits/overdue-count', auth, async (_req, res) => {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) as count FROM credits
+     WHERE status IN ('UNPAID','PARTIAL') AND due_date IS NOT NULL AND due_date < CURDATE()`
+  );
+  res.json({ count: Number(rows[0].count) });
+});
+
 app.get('/credits/outstanding', auth, async (_req, res) => {
   const [rows] = await pool.query(`
     SELECT cr.*, c.customer_name, c.phone_number

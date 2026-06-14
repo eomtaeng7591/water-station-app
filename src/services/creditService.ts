@@ -15,4 +15,8 @@ export const creditService = {
     const res = await api.get<{ total: number }>('/credits/total');
     return Number(res.total);
   },
+  async getOverdueCount(): Promise<number> {
+    const res = await api.get<{ count: number }>('/credits/overdue-count');
+    return Number(res.count);
+  },
 };

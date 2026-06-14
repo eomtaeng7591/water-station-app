@@ -9,6 +9,7 @@ import { pinService } from '../services/pinService';
 import { useOfflineSync } from '../hooks/useOfflineSync';
 import OfflineBanner from '../components/OfflineBanner';
 import { inventoryService } from '../services/inventoryService';
+import { creditService } from '../services/creditService';
 
 // Screens
 import DashboardScreen from '../screens/Dashboard/DashboardScreen';
@@ -74,12 +75,17 @@ function SettingsStackScreen({ onLogout }: { onLogout: () => void }) {
 function MainTabs({ onLogout }: { onLogout: () => void }) {
   const { isOnline, isSyncing, pendingCount, lastSyncResult } = useOfflineSync();
   const [lowStockCount, setLowStockCount] = useState(0);
+  const [overdueCount, setOverdueCount] = useState(0);
 
   useEffect(() => {
     const check = async () => {
       try {
-        const items = await inventoryService.getAll();
+        const [items, overdue] = await Promise.all([
+          inventoryService.getAll(),
+          creditService.getOverdueCount(),
+        ]);
         setLowStockCount(items.filter(i => i.current_stock <= i.low_stock_threshold).length);
+        setOverdueCount(overdue);
       } catch {}
     };
     check();
@@ -115,7 +121,11 @@ function MainTabs({ onLogout }: { onLogout: () => void }) {
         <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Dashboard' }} />
         <Tab.Screen name="Orders" component={OrderScreen} options={{ title: 'Orders' }} />
         <Tab.Screen name="Customers" component={CustomerStackScreen} options={{ title: 'Customers' }} />
-        <Tab.Screen name="Credits" component={CreditStackScreen} options={{ title: 'Credits' }} />
+        <Tab.Screen name="Credits" component={CreditStackScreen} options={{
+          title: 'Credits',
+          tabBarBadge: overdueCount > 0 ? overdueCount : undefined,
+          tabBarBadgeStyle: { backgroundColor: COLORS.danger, fontSize: 10 },
+        }} />
         <Tab.Screen
           name="Settings"
           options={{

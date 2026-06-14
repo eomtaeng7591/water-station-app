@@ -22,6 +22,15 @@ function getDDay(dueDateStr: string | null): { label: string; color: string } | 
   return { label: `D-${diff}`, color: COLORS.textSecondary };
 }
 
+function isOverdue(dueDateStr: string | null): boolean {
+  if (!dueDateStr) return false;
+  const due = new Date(dueDateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  due.setHours(0, 0, 0, 0);
+  return due < today;
+}
+
 interface CustomerGroup {
   customer_id: number;
   customer_name: string;
@@ -29,6 +38,7 @@ interface CustomerGroup {
   total_outstanding: number;
   credits: Credit[];
   expanded: boolean;
+  hasOverdue: boolean;
 }
 
 function buildGroups(credits: Credit[]): CustomerGroup[] {
@@ -43,13 +53,18 @@ function buildGroups(credits: Credit[]): CustomerGroup[] {
         total_outstanding: 0,
         credits: [],
         expanded: false,
+        hasOverdue: false,
       });
     }
     const g = map.get(c.customer_id)!;
     g.credits.push(c);
     g.total_outstanding += Number(c.remaining_balance);
+    if (isOverdue(c.due_date)) g.hasOverdue = true;
   }
-  return Array.from(map.values()).sort((a, b) => b.total_outstanding - a.total_outstanding);
+  return Array.from(map.values()).sort((a, b) => {
+    if (a.hasOverdue !== b.hasOverdue) return a.hasOverdue ? -1 : 1;
+    return b.total_outstanding - a.total_outstanding;
+  });
 }
 
 export default function CreditsScreen() {
@@ -89,7 +104,12 @@ export default function CreditsScreen() {
     const singleCredit = g.credits.length === 1 ? g.credits[0] : null;
 
     return (
-      <View style={styles.groupCard}>
+      <View style={[styles.groupCard, g.hasOverdue && styles.groupCardOverdue]}>
+        {g.hasOverdue && (
+          <View style={styles.overdueBar}>
+            <Text style={styles.overdueBarText}>⚠️ Overdue</Text>
+          </View>
+        )}
         <View style={styles.groupHeader}>
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>{g.customer_name[0]?.toUpperCase()}</Text>
@@ -223,6 +243,14 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surface, borderRadius: 12,
     borderWidth: 1, borderColor: COLORS.border, overflow: 'hidden',
   },
+  groupCardOverdue: {
+    borderColor: COLORS.danger, borderWidth: 1.5,
+  },
+  overdueBar: {
+    backgroundColor: '#FCEBEB', paddingHorizontal: 14, paddingVertical: 5,
+    borderBottomWidth: 1, borderBottomColor: '#F5C6C6',
+  },
+  overdueBarText: { fontSize: 12, fontWeight: '700', color: COLORS.danger },
   groupHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
   avatar: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#FCEBEB', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontSize: 18, fontWeight: '700', color: COLORS.danger },
