@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Alert, ActivityIndicator, TextInput, RefreshControl, Modal,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -191,8 +192,12 @@ export default function InventoryScreen() {
       </ScrollView>
 
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
-        <TouchableOpacity style={styles.overlay} activeOpacity={1} onPress={() => setModalVisible(false)} />
-        <View style={styles.sheet}>
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={() => setModalVisible(false)} />
+          <View style={styles.sheet}>
           <Text style={styles.sheetTitle}>
             {modalMode === 'restock' ? `+ Restock — ${activeItem?.item_name}`
               : modalMode === 'adjust' ? `Adjust — ${activeItem?.item_name}`
@@ -240,6 +245,7 @@ export default function InventoryScreen() {
             <Text style={styles.cancelText}>Cancel</Text>
           </TouchableOpacity>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -292,9 +298,8 @@ const styles = StyleSheet.create({
   logNote: { fontSize: 11, color: COLORS.textSecondary, marginTop: 1 },
   logDate: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
   logQty: { fontSize: 14, fontWeight: '700', marginLeft: 8 },
-  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.4)' },
+  modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   sheet: {
-    position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20,
     padding: 24, paddingBottom: 44,
   },
