@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// iOS 시뮬레이터: localhost = 호스트 Mac / 실기기: Mac의 LAN IP로 교체
-export const API_BASE = 'http://localhost:3000';
+// iOS 시뮬레이터: localhost:3000 / 실기기: Mac LAN IP로 교체
+export const API_BASE = 'http://172.30.1.70:3000';
 
 async function getToken(): Promise<string | null> {
   return AsyncStorage.getItem('auth_token');
