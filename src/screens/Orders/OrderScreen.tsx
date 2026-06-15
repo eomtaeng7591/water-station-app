@@ -418,7 +418,7 @@ export default function OrderScreen() {
                   'Enter GCash reference number (optional)',
                   [
                     { text: 'Cancel', style: 'cancel' },
-                    { text: 'Confirm', onPress: (ref) => handleSubmit('GCASH', ref?.trim() || undefined) },
+                    { text: 'Confirm', onPress: (ref: string | undefined) => handleSubmit('GCASH', ref?.trim() || undefined) },
                   ],
                   'plain-text',
                   gcashRef,

@@ -11,7 +11,8 @@ if (isNative) {
 
   Notifications!.setNotificationHandler({
     handleNotification: async () => ({
-      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
     }),
@@ -89,9 +90,9 @@ export async function scheduleUtangReminder(unpaidCount: number, totalAmount: nu
       ...(Platform.OS === 'android' && { channelId: 'reminders' }),
     },
     trigger: {
+      type: 'daily',
       hour: 9,
       minute: 0,
-      repeats: true,
     } as DailyTriggerInput,
   });
 
@@ -117,9 +118,9 @@ export async function scheduleDailyReport(): Promise<string> {
       ...(Platform.OS === 'android' && { channelId: 'daily_report' }),
     },
     trigger: {
+      type: 'daily',
       hour: 21,
       minute: 0,
-      repeats: true,
     } as DailyTriggerInput,
   });
 
