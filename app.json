@@ -11,7 +11,9 @@
       "resizeMode": "contain",
       "backgroundColor": "#0F6E56"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.purefect.waterstation",
@@ -30,6 +32,18 @@
     },
     "plugins": [
       "expo-notifications"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "d471ce02-09f9-4ada-97b6-3f319c427c46"
+      }
+    },
+    "owner": "eomtaehyun",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/d471ce02-09f9-4ada-97b6-3f319c427c46"
+    }
   }
 }
