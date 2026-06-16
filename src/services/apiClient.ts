@@ -1,7 +1,17 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-// iOS 시뮬레이터: localhost:3000 / 실기기: Mac LAN IP로 교체
-export const API_BASE = 'http://172.30.1.14:3000'; // 실기기용 LAN IP
+function resolveApiBase(): string {
+  // Metro bundler host에서 Mac IP를 추출 (실기기 포함 자동 감지)
+  const hostUri = Constants.expoConfig?.hostUri as string | undefined;
+  if (hostUri) {
+    const host = hostUri.split(':')[0];
+    return `http://${host}:3000`;
+  }
+  return 'http://localhost:3000';
+}
+
+export const API_BASE = resolveApiBase();
 
 async function getToken(): Promise<string | null> {
   return AsyncStorage.getItem('auth_token');
