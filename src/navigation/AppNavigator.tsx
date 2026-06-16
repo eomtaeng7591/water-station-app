@@ -90,10 +90,10 @@ const brandStyles = StyleSheet.create({
   container: {
     alignItems: 'flex-start',
     paddingHorizontal: 16,
-    paddingBottom: 8,
-    backgroundColor: '#fff',
+    paddingBottom: 10,
+    backgroundColor: '#DBEFFB',
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: '#A8D4ED',
   },
   logo: {
     width: 210,
