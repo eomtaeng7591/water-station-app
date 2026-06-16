@@ -172,10 +172,6 @@ export default function OrderScreen() {
       Alert.alert('Error', 'Please enter quantity.');
       return;
     }
-    if (orderType === 'DELIVERY' && !selectedCustomer) {
-      Alert.alert('Error', 'Please select a customer for delivery orders.');
-      return;
-    }
     setLoading(true);
     try {
       const dueDate = (payment === 'CREDIT' && dueDays)
@@ -229,6 +225,7 @@ export default function OrderScreen() {
       setSelectedRider(null);
       setDueDays(null);
       setPaymentType('CASH');
+      setOrderType('WALK-IN');
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to save');
     } finally {
