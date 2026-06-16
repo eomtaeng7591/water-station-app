@@ -96,7 +96,7 @@ export default function InventoryScreen() {
     item.low_stock_threshold > 0 && item.current_stock <= item.low_stock_threshold;
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.back}>‹ Back</Text>

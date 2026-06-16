@@ -200,7 +200,7 @@ export default function CreditsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
       <View style={styles.header}>
         <Text style={styles.title}>💳 Credit Management</Text>
       </View>

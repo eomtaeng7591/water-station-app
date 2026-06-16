@@ -153,7 +153,7 @@ export default function RidersScreen() {
   const isAtCurrentMonth = statsYear === now.getFullYear() && statsMonth === now.getMonth() + 1;
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>

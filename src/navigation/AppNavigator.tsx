@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text, ActivityIndicator, View, Alert } from 'react-native';
+import { Text, ActivityIndicator, View, Alert, Image, StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants';
 import { authService } from '../services/authService';
 import { pinService } from '../services/pinService';
@@ -72,6 +73,41 @@ function SettingsStackScreen({ onLogout }: { onLogout: () => void }) {
   );
 }
 
+function BrandHeader() {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[brandStyles.container, { paddingTop: insets.top }]}>
+      <Image
+        source={require('../../assets/joylogo_banner.png')}
+        style={brandStyles.logo}
+        resizeMode="contain"
+      />
+      <Text style={brandStyles.sub}>Management System</Text>
+    </View>
+  );
+}
+
+const brandStyles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    backgroundColor: '#EEF6FF',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+  },
+  logo: {
+    width: 220,
+    height: 44,
+  },
+  sub: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    marginTop: -2,
+    letterSpacing: 0.5,
+  },
+});
+
 function MainTabs({ onLogout }: { onLogout: () => void }) {
   const { isOnline, isSyncing, pendingCount, lastSyncResult } = useOfflineSync();
   const [lowStockCount, setLowStockCount] = useState(0);
@@ -95,6 +131,7 @@ function MainTabs({ onLogout }: { onLogout: () => void }) {
 
   return (
     <View style={{ flex: 1 }}>
+      <BrandHeader />
       <OfflineBanner
         isOnline={isOnline}
         isSyncing={isSyncing}

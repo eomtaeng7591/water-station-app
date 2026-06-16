@@ -237,7 +237,7 @@ export default function OrderScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
       <View style={styles.viewTabs}>
         <TouchableOpacity
           style={[styles.viewTab, activeView === 'form' && styles.viewTabActive]}

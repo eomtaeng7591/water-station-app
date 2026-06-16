@@ -132,7 +132,7 @@ export default function DashboardScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={{ paddingBottom: 32 }}

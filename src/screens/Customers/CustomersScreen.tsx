@@ -56,7 +56,7 @@ export default function CustomersScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
       <View style={styles.header}>
         <Text style={styles.title}>👥 Customers</Text>
         <TouchableOpacity

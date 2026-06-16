@@ -116,7 +116,7 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView style={styles.container}>
         <Text style={styles.title}>⚙️ Settings</Text>
 
