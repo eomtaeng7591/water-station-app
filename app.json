@@ -31,7 +31,8 @@
       "package": "com.purefect.waterstation"
     },
     "plugins": [
-      "expo-notifications"
+      "expo-notifications",
+      "expo-updates"
     ],
     "extra": {
       "eas": {
