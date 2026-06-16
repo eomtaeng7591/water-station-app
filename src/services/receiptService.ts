@@ -11,7 +11,9 @@ export async function shareOrderReceipt(order: Order): Promise<void> {
   const timeStr = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
   const payColor = order.payment_type === 'CASH' ? '#15803D'
-    : order.payment_type === 'GCASH' ? '#6D28D9' : '#B91C1C';
+    : order.payment_type === 'GCASH' ? '#6D28D9'
+    : order.payment_type === 'MAYA' ? '#0EA5E9'
+    : '#B91C1C';
   const typeEmoji = order.order_type === 'WALK-IN' ? '🚶' : '🏍️';
   const receiptNo = order.receipt_no ?? `ORD-${order.order_id}`;
 
@@ -27,8 +29,10 @@ export async function shareOrderReceipt(order: Order): Promise<void> {
   const riderRow = (order as any).rider_name
     ? `<tr><td class="key">Rider</td><td class="val">${(order as any).rider_name}</td></tr>`
     : '';
+  const refLabel = order.payment_type === 'MAYA' ? 'Maya Ref' : 'GCash Ref';
+  const refColor = order.payment_type === 'MAYA' ? '#0EA5E9' : '#6D28D9';
   const gcashRefRow = order.gcash_ref
-    ? `<tr><td class="key">GCash Ref</td><td class="val" style="color:#6D28D9;font-weight:700">${order.gcash_ref}</td></tr>`
+    ? `<tr><td class="key">${refLabel}</td><td class="val" style="color:${refColor};font-weight:700">${order.gcash_ref}</td></tr>`
     : '';
   const remarksRow = order.remarks
     ? `<tr><td class="key">Note</td><td class="val" style="font-style:italic">${order.remarks}</td></tr>`

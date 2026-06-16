@@ -31,7 +31,7 @@ export interface TargetProgress {
 }
 
 export type OrderType = 'WALK-IN' | 'DELIVERY';
-export type PaymentType = 'CASH' | 'GCASH' | 'CREDIT';
+export type PaymentType = 'CASH' | 'GCASH' | 'MAYA' | 'CREDIT';
 export type DeliveryStatus = 'PENDING' | 'COMPLETED';
 export type CreditStatus = 'UNPAID' | 'PARTIAL' | 'PAID';
 

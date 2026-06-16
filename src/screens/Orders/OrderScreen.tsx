@@ -17,7 +17,7 @@ import { addDays, format } from 'date-fns';
 
 type ActiveView = 'form' | 'today';
 type FilterType = 'ALL' | 'WALK-IN' | 'DELIVERY';
-type FilterPayment = 'ALL' | 'CASH' | 'GCASH' | 'CREDIT';
+type FilterPayment = 'ALL' | 'CASH' | 'GCASH' | 'MAYA';
 
 function dateStr(d: Date) {
   const y = d.getFullYear();
@@ -377,27 +377,7 @@ export default function OrderScreen() {
             />
           </View>
 
-          {selectedCustomer && (
-            <View style={styles.section}>
-              <Text style={styles.label}>💳 Credit Due Date</Text>
-              <View style={styles.row}>
-                {[7, 15, 30].map(d => (
-                  <TouchableOpacity
-                    key={d}
-                    style={[styles.dueDayBtn, dueDays === d && styles.dueDayBtnActive]}
-                    onPress={() => setDueDays(dueDays === d ? null : d)}
-                  >
-                    <Text style={[styles.dueDayText, dueDays === d && styles.dueDayTextActive]}>+{d} days</Text>
-                    {dueDays === d && (
-                      <Text style={styles.dueDatePreview}>{format(addDays(new Date(), d), 'M/d')}</Text>
-                    )}
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-          )}
-
-          <Text style={styles.label}>Select Payment Method</Text>
+<Text style={styles.label}>Select Payment Method</Text>
           <View style={styles.paymentRow}>
             <TouchableOpacity
               style={[styles.payBtn, { borderColor: COLORS.cash }]}
@@ -430,21 +410,27 @@ export default function OrderScreen() {
               <Text style={[styles.payBtnText, { color: COLORS.ewallet }]}>📱 Gcash</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[
-                styles.payBtn,
-                { borderColor: COLORS.credit },
-                (orderType === 'DELIVERY' && !selectedCustomer) && styles.payBtnDisabled,
-              ]}
-              onPress={() => handleSubmit('CREDIT')}
-              disabled={loading || (orderType === 'DELIVERY' && !selectedCustomer)}
+              style={[styles.payBtn, { borderColor: '#0EA5E9' }]}
+              onPress={() => {
+                if (!quantity || parseInt(quantity) < 1) {
+                  Alert.alert('Error', 'Please enter quantity.');
+                  return;
+                }
+                Alert.prompt(
+                  '💙 Maya Pay Reference',
+                  'Enter Maya reference number (optional)',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Confirm', onPress: (ref: string | undefined) => handleSubmit('MAYA', ref?.trim() || undefined) },
+                  ],
+                  'plain-text',
+                  '',
+                  'number-pad',
+                );
+              }}
+              disabled={loading}
             >
-              <Text style={[
-                styles.payBtnText,
-                { color: COLORS.credit },
-                (orderType === 'DELIVERY' && !selectedCustomer) && styles.payBtnTextDisabled,
-              ]}>
-                💳 CREDIT
-              </Text>
+              <Text style={[styles.payBtnText, { color: '#0EA5E9' }]}>💙 Maya</Text>
             </TouchableOpacity>
           </View>
 
@@ -489,14 +475,14 @@ export default function OrderScreen() {
                 </Text>
               </TouchableOpacity>
             ))}
-            {(['ALL', 'CASH', 'GCASH', 'CREDIT'] as FilterPayment[]).map(p => (
+            {(['ALL', 'CASH', 'GCASH', 'MAYA'] as FilterPayment[]).map(p => (
               <TouchableOpacity
                 key={p}
                 style={[styles.filterChip, filterPayment === p && styles.filterChipActive]}
                 onPress={() => setFilterPayment(p)}
               >
                 <Text style={[styles.filterChipText, filterPayment === p && styles.filterChipTextActive]}>
-                  {p === 'ALL' ? 'All Pay' : p === 'GCASH' ? 'Gcash' : p}
+                  {p === 'ALL' ? 'All Pay' : p === 'GCASH' ? 'GCash' : p === 'MAYA' ? 'Maya' : p}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -559,9 +545,21 @@ export default function OrderScreen() {
                         {order.order_type === 'WALK-IN' ? '🚶 Walk-in' : '🏍️ Delivery'}
                       </Text>
                     </View>
-                    <View style={[styles.payBadge, { backgroundColor: order.payment_type === 'CASH' ? '#EAF3DE' : order.payment_type === 'GCASH' ? '#EDE9FE' : '#FCEBEB' }]}>
-                      <Text style={[styles.payBadgeText, { color: order.payment_type === 'CASH' ? COLORS.cash : order.payment_type === 'GCASH' ? COLORS.ewallet : COLORS.credit }]}>
-                        {order.payment_type === 'GCASH' ? 'Gcash' : order.payment_type}
+                    <View style={[styles.payBadge, {
+                      backgroundColor: order.payment_type === 'CASH' ? '#EAF3DE'
+                        : order.payment_type === 'GCASH' ? '#EDE9FE'
+                        : order.payment_type === 'MAYA' ? '#E0F2FE'
+                        : '#FCEBEB',
+                    }]}>
+                      <Text style={[styles.payBadgeText, {
+                        color: order.payment_type === 'CASH' ? COLORS.cash
+                          : order.payment_type === 'GCASH' ? COLORS.ewallet
+                          : order.payment_type === 'MAYA' ? '#0EA5E9'
+                          : COLORS.credit,
+                      }]}>
+                        {order.payment_type === 'GCASH' ? 'GCash'
+                          : order.payment_type === 'MAYA' ? 'Maya'
+                          : order.payment_type}
                       </Text>
                     </View>
                     {order.order_type === 'DELIVERY' && order.delivery_status === 'PENDING' && (
