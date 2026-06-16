@@ -82,29 +82,22 @@ function BrandHeader() {
         style={brandStyles.logo}
         resizeMode="contain"
       />
-      <Text style={brandStyles.sub}>Management System</Text>
     </View>
   );
 }
 
 const brandStyles = StyleSheet.create({
   container: {
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 16,
     paddingBottom: 8,
-    backgroundColor: '#EEF6FF',
+    backgroundColor: '#DBEFFB',
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.border,
+    borderBottomColor: '#B8DDF2',
   },
   logo: {
-    width: 220,
-    height: 44,
-  },
-  sub: {
-    fontSize: 10,
-    color: COLORS.textMuted,
-    marginTop: -2,
-    letterSpacing: 0.5,
+    width: 200,
+    height: 48,
   },
 });
 
