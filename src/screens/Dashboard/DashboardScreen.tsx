@@ -4,6 +4,7 @@ import {
   ActivityIndicator, RefreshControl, Modal, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { reportService, DailyStatsResult } from '../../services/reportService';
 import { creditService } from '../../services/creditService';
 import { TargetProgress } from '../../types';
@@ -84,7 +85,7 @@ export default function DashboardScreen() {
     }
   }, []);
 
-  useEffect(() => { loadDaily(); }, [loadDaily]);
+  useFocusEffect(useCallback(() => { loadDaily(); }, [loadDaily]));
 
   const onRefresh = async () => {
     setRefreshing(true);
