@@ -40,9 +40,7 @@
       }
     },
     "owner": "eomtaehyun",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/d471ce02-09f9-4ada-97b6-3f319c427c46"
     }
