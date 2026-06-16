@@ -91,13 +91,13 @@ const brandStyles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingHorizontal: 16,
     paddingBottom: 8,
-    backgroundColor: '#DBEFFB',
+    backgroundColor: '#fff',
     borderBottomWidth: 1,
-    borderBottomColor: '#B8DDF2',
+    borderBottomColor: COLORS.border,
   },
   logo: {
-    width: 200,
-    height: 48,
+    width: 210,
+    height: 50,
   },
 });
 
