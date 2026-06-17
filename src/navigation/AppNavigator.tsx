@@ -82,7 +82,6 @@ function BrandHeader() {
       <Image
         source={require('../../assets/joylogo_banner.png')}
         style={brandStyles.logo}
-        resizeMode="contain"
       />
     </View>
   );
@@ -96,7 +95,8 @@ const brandStyles = StyleSheet.create({
   },
   logo: {
     width: SCREEN_W,
-    aspectRatio: 1905 / 560,
+    height: Math.round(SCREEN_W * 560 / 1905),
+    objectFit: 'contain' as const,
   },
 });
 
