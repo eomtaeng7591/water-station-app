@@ -90,14 +90,14 @@ const brandStyles = StyleSheet.create({
   container: {
     alignItems: 'flex-start',
     paddingHorizontal: 16,
-    paddingBottom: 10,
+    paddingBottom: 8,
     backgroundColor: '#DBEFFB',
     borderBottomWidth: 1,
     borderBottomColor: '#A8D4ED',
   },
   logo: {
-    width: 240,
-    height: 72,
+    width: 180,
+    height: 126,
   },
 });
 
