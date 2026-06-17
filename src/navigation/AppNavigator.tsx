@@ -96,7 +96,7 @@ const brandStyles = StyleSheet.create({
   },
   logo: {
     width: SCREEN_W,
-    aspectRatio: 1512 / 1024,
+    aspectRatio: 1905 / 560,
   },
 });
 
