@@ -90,16 +90,13 @@ function BrandHeader() {
 
 const brandStyles = StyleSheet.create({
   container: {
-    alignItems: 'flex-start',
-    paddingHorizontal: 12,
-    paddingBottom: 8,
     backgroundColor: '#DBEFFB',
     borderBottomWidth: 1,
     borderBottomColor: '#A8D4ED',
   },
   logo: {
-    width: 126,
-    height: 85,
+    width: SCREEN_W,
+    aspectRatio: 1512 / 1024,
   },
 });
 
