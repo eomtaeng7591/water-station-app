@@ -92,10 +92,13 @@ const brandStyles = StyleSheet.create({
     backgroundColor: '#DBEFFB',
     borderBottomWidth: 1,
     borderBottomColor: '#A8D4ED',
+    alignItems: 'flex-start',
+    paddingLeft: 12,
+    paddingVertical: 4,
   },
   logo: {
-    width: SCREEN_W,
-    height: Math.round(SCREEN_W * 560 / 1905),
+    width: Math.round(SCREEN_W * 0.6),
+    height: Math.round(SCREEN_W * 0.6 * 560 / 1905),
     objectFit: 'contain' as const,
   },
 });
