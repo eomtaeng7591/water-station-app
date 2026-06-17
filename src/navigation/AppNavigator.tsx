@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text, ActivityIndicator, View, Alert, Image, StyleSheet } from 'react-native';
+import { Text, ActivityIndicator, View, Alert, Image, StyleSheet, Dimensions } from 'react-native';
+
+const SCREEN_W = Dimensions.get('window').width;
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { COLORS } from '../constants';
 import { authService } from '../services/authService';
@@ -89,15 +91,15 @@ function BrandHeader() {
 const brandStyles = StyleSheet.create({
   container: {
     alignItems: 'flex-start',
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingBottom: 8,
     backgroundColor: '#DBEFFB',
     borderBottomWidth: 1,
     borderBottomColor: '#A8D4ED',
   },
   logo: {
-    width: 180,
-    height: 126,
+    width: 126,
+    height: 85,
   },
 });
 
