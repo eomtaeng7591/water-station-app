@@ -97,8 +97,8 @@ const brandStyles = StyleSheet.create({
     paddingVertical: 4,
   },
   logo: {
-    width: Math.round(SCREEN_W * 0.6),
-    height: Math.round(SCREEN_W * 0.6 * 560 / 1905),
+    width: Math.round(SCREEN_W * 0.36),
+    height: Math.round(SCREEN_W * 0.36 * 560 / 1905),
     objectFit: 'contain' as const,
   },
 });
