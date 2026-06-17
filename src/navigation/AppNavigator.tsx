@@ -96,8 +96,8 @@ const brandStyles = StyleSheet.create({
     borderBottomColor: '#A8D4ED',
   },
   logo: {
-    width: 210,
-    height: 50,
+    width: 240,
+    height: 72,
   },
 });
 
