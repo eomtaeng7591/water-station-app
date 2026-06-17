@@ -1,6 +1,5 @@
 node_modules
 .expo/
 .playwright-mcp/
-*.png
 server/.env
 dist/
