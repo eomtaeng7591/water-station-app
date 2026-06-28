@@ -35,7 +35,13 @@ async function request<T>(method: string, path: string, body?: any): Promise<T> 
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-  const data = await res.json();
+  const text = await res.text();
+  let data: any;
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    throw new Error(`Server error (${res.status}): ${text.slice(0, 200) || 'Empty response'}`);
+  }
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
 }
