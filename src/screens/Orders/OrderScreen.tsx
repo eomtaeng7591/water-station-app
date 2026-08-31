@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, Alert, ActivityIndicator, Modal, FlatList, RefreshControl,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants';
@@ -247,6 +248,7 @@ export default function OrderScreen() {
       </View>
 
       {activeView === 'form' ? (
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.typeRow}>
             {(['WALK-IN', 'DELIVERY'] as OrderType[]).map(t => (
@@ -390,6 +392,7 @@ export default function OrderScreen() {
 
           {loading && <ActivityIndicator color={COLORS.primary} style={{ margin: 16 }} />}
         </ScrollView>
+        </KeyboardAvoidingView>
       ) : (
         <ScrollView
           style={styles.container}

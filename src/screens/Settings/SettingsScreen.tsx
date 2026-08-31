@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   Alert, ActivityIndicator, ScrollView, Modal,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -117,7 +118,8 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <ScrollView style={styles.container}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>⚙️ Settings</Text>
 
         {/* Quick navigation cards */}
@@ -264,6 +266,7 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
           <View style={styles.infoRow}><Text style={styles.infoKey}>Database</Text><Text style={styles.infoVal}>MariaDB</Text></View>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* PIN flow — full-screen modal */}
       <Modal

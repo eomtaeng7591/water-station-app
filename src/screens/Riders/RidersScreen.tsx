@@ -2,6 +2,7 @@ import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   TextInput, Modal, Alert, ActivityIndicator, RefreshControl,
+  KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -351,43 +352,45 @@ export default function RidersScreen() {
 
       {/* Add / Edit Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent onRequestClose={() => setModalVisible(false)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalVisible(false)}>
-          <TouchableOpacity activeOpacity={1} style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>{modalMode === 'add' ? '+ Add Rider' : '✏️ Edit Rider'}</Text>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setModalVisible(false)}>
+            <TouchableOpacity activeOpacity={1} style={styles.modalSheet}>
+              <Text style={styles.modalTitle}>{modalMode === 'add' ? '+ Add Rider' : '✏️ Edit Rider'}</Text>
 
-            <Text style={styles.modalLabel}>Name *</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={formName}
-              onChangeText={setFormName}
-              placeholder="Rider Name"
-              placeholderTextColor={COLORS.textMuted}
-              autoFocus
-            />
+              <Text style={styles.modalLabel}>Name *</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={formName}
+                onChangeText={setFormName}
+                placeholder="Rider Name"
+                placeholderTextColor={COLORS.textMuted}
+                autoFocus
+              />
 
-            <Text style={styles.modalLabel}>Phone</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={formPhone}
-              onChangeText={setFormPhone}
-              placeholder="09XX-XXX-XXXX"
-              placeholderTextColor={COLORS.textMuted}
-              keyboardType="phone-pad"
-            />
+              <Text style={styles.modalLabel}>Phone</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={formPhone}
+                onChangeText={setFormPhone}
+                placeholder="09XX-XXX-XXXX"
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="phone-pad"
+              />
 
-            <View style={styles.modalBtns}>
-              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setModalVisible(false)}>
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSave} disabled={formLoading}>
-                {formLoading
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.modalSaveText}>{modalMode === 'add' ? 'Add' : 'Save'}</Text>
-                }
-              </TouchableOpacity>
-            </View>
+              <View style={styles.modalBtns}>
+                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setModalVisible(false)}>
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalSaveBtn} onPress={handleSave} disabled={formLoading}>
+                  {formLoading
+                    ? <ActivityIndicator color="#fff" />
+                    : <Text style={styles.modalSaveText}>{modalMode === 'add' ? 'Add' : 'Save'}</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </TouchableOpacity>
           </TouchableOpacity>
-        </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
