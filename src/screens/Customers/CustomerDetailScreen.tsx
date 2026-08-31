@@ -1,11 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
-import { creditService } from '../../services/creditService';
 import { customerService } from '../../services/customerService';
 import { orderService } from '../../services/orderService';
-import { Credit, Customer, Order } from '../../types';
+import { Customer, Order } from '../../types';
 import { COLORS } from '../../constants';
 import { getCustomerTier } from '../../utils/customerTier';
 
@@ -15,20 +14,17 @@ export default function CustomerDetailScreen() {
   const initialCustomer: Customer = route.params?.customer;
 
   const [customer, setCustomer] = useState<Customer>(initialCustomer);
-  const [credits, setCredits] = useState<Credit[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [fresh, c, o] = await Promise.all([
+      const [fresh, o] = await Promise.all([
         customerService.getCustomerById(initialCustomer.customer_id),
-        creditService.getCustomerCredits(initialCustomer.customer_id),
         orderService.getOrdersByCustomer(initialCustomer.customer_id),
       ]);
       setCustomer(fresh);
-      setCredits(c);
       setOrders(o);
     } finally {
       setLoading(false);
@@ -37,8 +33,6 @@ export default function CustomerDetailScreen() {
 
   useFocusEffect(useCallback(() => { loadAll(); }, [loadAll]));
 
-  const unpaidCredits = credits.filter(c => c.status !== 'PAID');
-  const outstanding = unpaidCredits.reduce((s, c) => s + Number(c.remaining_balance), 0);
   const totalSpend = orders.reduce((s, o) => s + Number(o.total_amount), 0);
   const tier = getCustomerTier(orders.length, totalSpend);
 
@@ -90,17 +84,6 @@ export default function CustomerDetailScreen() {
           <Text style={styles.phone}>{customer.phone_number}</Text>
           <Text style={styles.address}>{customer.address}</Text>
 
-          {/* Tags */}
-          {(customer.tags ?? []).length > 0 && (
-            <View style={styles.tagRow}>
-              {(customer.tags ?? []).map(tag => (
-                <View key={tag} style={styles.tagChip}>
-                  <Text style={styles.tagChipText}>{tag}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-
           {/* Notes / Memo */}
           {!!customer.notes && (
             <View style={styles.notesBox}>
@@ -127,65 +110,7 @@ export default function CustomerDetailScreen() {
           </View>
         </View>
 
-        {outstanding > 0 && (
-          <View style={styles.outstanding}>
-            <Text style={styles.outstandingLabel}>Total Outstanding Balance</Text>
-            <Text style={styles.outstandingValue}>₱{outstanding.toLocaleString()}</Text>
-            {unpaidCredits.length === 1 && (
-              <TouchableOpacity
-                style={styles.collectBtn}
-                onPress={() => navigation.navigate('CollectPayment', {
-                  creditId: unpaidCredits[0].credit_id,
-                  customerName: customer.customer_name,
-                  remaining: unpaidCredits[0].remaining_balance,
-                  onDone: loadAll,
-                })}
-              >
-                <Text style={styles.collectBtnText}>Collect</Text>
-              </TouchableOpacity>
-            )}
-            {unpaidCredits.length > 1 && (
-              <Text style={styles.multiCreditHint}>Collect individually from the list below</Text>
-            )}
-          </View>
-        )}
-
-        <Text style={styles.sectionTitle}>Credit History</Text>
-        {loading ? <ActivityIndicator color={COLORS.primary} /> : credits.length === 0 ? (
-          <Text style={styles.emptyText}>No credit history.</Text>
-        ) : (
-          credits.map(c => (
-            <View key={c.credit_id} style={styles.creditRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.creditDate}>{new Date(c.updated_at).toLocaleDateString('en-US')}</Text>
-                <Text style={styles.creditAmount}>₱{Number(c.amount).toLocaleString()}</Text>
-                {c.status !== 'PAID' && (
-                  <Text style={styles.remaining}>Balance ₱{Number(c.remaining_balance).toLocaleString()}</Text>
-                )}
-              </View>
-              <View style={{ alignItems: 'flex-end', gap: 6 }}>
-                <View style={[styles.statusBadge, { backgroundColor: c.status === 'PAID' ? '#EAF3DE' : '#FCEBEB' }]}>
-                  <Text style={[styles.statusText, { color: c.status === 'PAID' ? COLORS.cash : COLORS.danger }]}>{c.status}</Text>
-                </View>
-                {c.status !== 'PAID' && (
-                  <TouchableOpacity
-                    style={styles.collectSmallBtn}
-                    onPress={() => navigation.navigate('CollectPayment', {
-                      creditId: c.credit_id,
-                      customerName: customer.customer_name,
-                      remaining: c.remaining_balance,
-                      onDone: loadAll,
-                    })}
-                  >
-                    <Text style={styles.collectSmallBtnText}>Collect</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-          ))
-        )}
-
-        <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Order History (Last 30)</Text>
+        <Text style={styles.sectionTitle}>Order History (Last 30)</Text>
         {loading ? null : orders.length === 0 ? (
           <Text style={styles.emptyText}>No order history.</Text>
         ) : (
@@ -205,11 +130,11 @@ export default function CustomerDetailScreen() {
                 <Text style={styles.orderAmount}>₱{Number(o.total_amount).toLocaleString()}</Text>
                 <View style={[styles.payBadge, {
                   backgroundColor: o.payment_type === 'CASH' ? '#EAF3DE'
-                    : o.payment_type === 'GCASH' ? '#EDE9FE' : '#FCEBEB',
+                    : o.payment_type === 'GCASH' ? '#EDE9FE' : '#E0F2FE',
                 }]}>
                   <Text style={[styles.payBadgeText, {
                     color: o.payment_type === 'CASH' ? COLORS.cash
-                      : o.payment_type === 'GCASH' ? COLORS.ewallet : COLORS.credit,
+                      : o.payment_type === 'GCASH' ? COLORS.ewallet : '#0EA5E9',
                   }]}>
                     {o.payment_type === 'GCASH' ? 'Gcash' : o.payment_type}
                   </Text>

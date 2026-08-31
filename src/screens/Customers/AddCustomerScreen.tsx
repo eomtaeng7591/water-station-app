@@ -9,8 +9,6 @@ import { customerService } from '../../services/customerService';
 import { Customer } from '../../types';
 import { COLORS } from '../../constants';
 
-const PRESET_TAGS = ['Walk-in', 'Delivery', 'Bulk Buyer', 'Credit OK', 'No Credit', 'VIP', 'Wholesale', 'Refill Only'];
-
 export default function AddCustomerScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -21,12 +19,7 @@ export default function AddCustomerScreen() {
   const [phone, setPhone] = useState(editCustomer?.phone_number ?? '');
   const [address, setAddress] = useState(editCustomer?.address ?? '');
   const [notes, setNotes] = useState(editCustomer?.notes ?? '');
-  const [tags, setTags] = useState<string[]>(editCustomer?.tags ?? []);
   const [loading, setLoading] = useState(false);
-
-  const toggleTag = (tag: string) => {
-    setTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
-  };
 
   const handleSave = async () => {
     if (!name.trim() || !phone.trim() || !address.trim()) {
@@ -41,13 +34,12 @@ export default function AddCustomerScreen() {
           phone_number: phone.trim(),
           address: address.trim(),
           notes: notes.trim() || undefined,
-          tags,
         });
         Alert.alert('✅ Updated', `${name} has been updated.`, [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
       } else {
-        await customerService.createCustomer(name.trim(), phone.trim(), address.trim(), notes.trim() || undefined, tags);
+        await customerService.createCustomer(name.trim(), phone.trim(), address.trim(), notes.trim() || undefined);
         Alert.alert('✅ Registered', `${name} has been registered.`, [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
@@ -61,14 +53,18 @@ export default function AddCustomerScreen() {
 
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}><Text style={styles.back}>‹ Back</Text></TouchableOpacity>
           <Text style={styles.title}>{isEdit ? 'Edit Customer' : 'New Customer'}</Text>
           <View style={{ width: 60 }} />
         </View>
 
-        <ScrollView style={styles.form} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          style={styles.form}
+          contentContainerStyle={styles.formContent}
+          keyboardShouldPersistTaps="handled"
+        >
           <Text style={styles.label}>Name *</Text>
           <TextInput
             style={styles.input}
@@ -76,6 +72,10 @@ export default function AddCustomerScreen() {
             onChangeText={setName}
             placeholder="Customer Name"
             placeholderTextColor={COLORS.textMuted}
+            autoCorrect={false}
+            autoComplete="off"
+            textContentType="none"
+            spellCheck={false}
           />
 
           <Text style={styles.label}>Phone * <Text style={styles.hint}>(unique)</Text></Text>
@@ -98,21 +98,6 @@ export default function AddCustomerScreen() {
             multiline
             numberOfLines={3}
           />
-
-          <Text style={styles.label}>Tags <Text style={styles.hint}>(optional)</Text></Text>
-          <View style={styles.tagGrid}>
-            {PRESET_TAGS.map(tag => (
-              <TouchableOpacity
-                key={tag}
-                style={[styles.tagChip, tags.includes(tag) && styles.tagChipActive]}
-                onPress={() => toggleTag(tag)}
-              >
-                <Text style={[styles.tagChipText, tags.includes(tag) && styles.tagChipTextActive]}>
-                  {tags.includes(tag) ? '✓ ' : ''}{tag}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
 
           <Text style={styles.label}>Memo <Text style={styles.hint}>(optional)</Text></Text>
           <TextInput
@@ -146,6 +131,7 @@ const styles = StyleSheet.create({
   back: { fontSize: 16, color: COLORS.primary },
   title: { fontSize: 17, fontWeight: '700', color: COLORS.textPrimary },
   form: { padding: 20 },
+  formContent: { flexGrow: 1, paddingBottom: 40 },
   label: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6, marginTop: 16 },
   hint: { fontWeight: '400', color: COLORS.textMuted },
   input: {

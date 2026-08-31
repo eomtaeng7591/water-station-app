@@ -29,17 +29,11 @@ export const ORDER_TYPES = {
 
 export const PAYMENT_TYPES = {
   CASH: 'CASH',
-  EWALLET: 'GCASH',
-  CREDIT: 'CREDIT',
+  GCASH: 'GCASH',
+  MAYA: 'MAYA',
 } as const;
 
 export const DELIVERY_STATUS = {
   PENDING: 'PENDING',
   COMPLETED: 'COMPLETED',
-} as const;
-
-export const CREDIT_STATUS = {
-  UNPAID: 'UNPAID',
-  PARTIAL: 'PARTIAL',
-  PAID: 'PAID',
 } as const;

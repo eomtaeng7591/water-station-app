@@ -12,7 +12,7 @@ import { pinService } from '../services/pinService';
 import { useOfflineSync } from '../hooks/useOfflineSync';
 import OfflineBanner from '../components/OfflineBanner';
 import { inventoryService } from '../services/inventoryService';
-import { creditService } from '../services/creditService';
+import { getCurrentStoreName } from '../services/storeContext';
 
 // Screens
 import DashboardScreen from '../screens/Dashboard/DashboardScreen';
@@ -20,8 +20,6 @@ import OrderScreen from '../screens/Orders/OrderScreen';
 import CustomersScreen from '../screens/Customers/CustomersScreen';
 import CustomerDetailScreen from '../screens/Customers/CustomerDetailScreen';
 import AddCustomerScreen from '../screens/Customers/AddCustomerScreen';
-import CreditsScreen from '../screens/Credits/CreditsScreen';
-import CollectPaymentScreen from '../screens/Credits/CollectPaymentScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import InventoryScreen from '../screens/Inventory/InventoryScreen';
 import RidersScreen from '../screens/Riders/RidersScreen';
@@ -30,12 +28,11 @@ import PinLockScreen from '../screens/Auth/PinLockScreen';
 
 const Tab = createBottomTabNavigator();
 const CustomerStack = createNativeStackNavigator();
-const CreditStack = createNativeStackNavigator();
 const SettingsStack = createNativeStackNavigator();
 
 function TabIcon({ name, focused }: { name: string; focused: boolean }) {
   const icons: Record<string, string> = {
-    Dashboard: '📊', Orders: '🧾', Customers: '👥', Credits: '💳', Settings: '⚙️',
+    Dashboard: '📊', Orders: '🧾', Customers: '👥', Settings: '⚙️',
   };
   return (
     <Text style={{ fontSize: focused ? 22 : 20, opacity: focused ? 1 : 0.55 }}>
@@ -54,15 +51,6 @@ function CustomerStackScreen() {
   );
 }
 
-function CreditStackScreen() {
-  return (
-    <CreditStack.Navigator screenOptions={{ headerShown: false }}>
-      <CreditStack.Screen name="CreditsList" component={CreditsScreen} />
-      <CreditStack.Screen name="CollectPayment" component={CollectPaymentScreen} />
-    </CreditStack.Navigator>
-  );
-}
-
 function SettingsStackScreen({ onLogout }: { onLogout: () => void }) {
   return (
     <SettingsStack.Navigator screenOptions={{ headerShown: false }}>
@@ -77,12 +65,19 @@ function SettingsStackScreen({ onLogout }: { onLogout: () => void }) {
 
 function BrandHeader() {
   const insets = useSafeAreaInsets();
+  const [storeName, setStoreName] = useState('');
+
+  useEffect(() => {
+    getCurrentStoreName().then(setStoreName).catch(() => {});
+  }, []);
+
   return (
     <View style={[brandStyles.container, { paddingTop: insets.top }]}>
       <Image
         source={require('../../assets/joylogo_banner.png')}
         style={brandStyles.logo}
       />
+      {storeName ? <Text style={brandStyles.storeName}>{storeName}</Text> : null}
     </View>
   );
 }
@@ -92,7 +87,8 @@ const brandStyles = StyleSheet.create({
     backgroundColor: '#DBEFFB',
     borderBottomWidth: 1,
     borderBottomColor: '#A8D4ED',
-    alignItems: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingLeft: 12,
     paddingVertical: 4,
   },
@@ -101,22 +97,22 @@ const brandStyles = StyleSheet.create({
     height: Math.round(SCREEN_W * 0.36 * 560 / 1905),
     objectFit: 'contain' as const,
   },
+  storeName: {
+    fontSize: 20,
+    color: '#6B8A9E',
+    marginLeft: 8,
+  },
 });
 
 function MainTabs({ onLogout }: { onLogout: () => void }) {
   const { isOnline, isSyncing, pendingCount, lastSyncResult } = useOfflineSync();
   const [lowStockCount, setLowStockCount] = useState(0);
-  const [overdueCount, setOverdueCount] = useState(0);
 
   useEffect(() => {
     const check = async () => {
       try {
-        const [items, overdue] = await Promise.all([
-          inventoryService.getAll(),
-          creditService.getOverdueCount(),
-        ]);
+        const items = await inventoryService.getAll();
         setLowStockCount(items.filter(i => i.current_stock <= i.low_stock_threshold).length);
-        setOverdueCount(overdue);
       } catch {}
     };
     check();
@@ -153,11 +149,6 @@ function MainTabs({ onLogout }: { onLogout: () => void }) {
         <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Dashboard' }} />
         <Tab.Screen name="Orders" component={OrderScreen} options={{ title: 'Orders' }} />
         <Tab.Screen name="Customers" component={CustomerStackScreen} options={{ title: 'Customers' }} />
-        <Tab.Screen name="Credits" component={CreditStackScreen} options={{
-          title: 'Credits',
-          tabBarBadge: overdueCount > 0 ? overdueCount : undefined,
-          tabBarBadgeStyle: { backgroundColor: COLORS.danger, fontSize: 10 },
-        }} />
         <Tab.Screen
           name="Settings"
           options={{

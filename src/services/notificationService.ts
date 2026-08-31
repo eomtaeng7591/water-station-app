@@ -78,34 +78,6 @@ export async function notifyDeliveryCompleted(customerName: string, amount: numb
   });
 }
 
-export async function scheduleUtangReminder(unpaidCount: number, totalAmount: number): Promise<string> {
-  if (!isNative || !Notifications) return '';
-  await cancelUtangReminder();
-
-  const id = await Notifications.scheduleNotificationAsync({
-    content: {
-      title: '💳 Outstanding Credit Reminder',
-      body: `${unpaidCount} customers unpaid · Total ₱${totalAmount.toLocaleString()} outstanding`,
-      data: { type: 'utang_reminder' },
-      ...(Platform.OS === 'android' && { channelId: 'reminders' }),
-    },
-    trigger: {
-      type: 'daily',
-      hour: 9,
-      minute: 0,
-    } as DailyTriggerInput,
-  });
-
-  return id;
-}
-
-export async function cancelUtangReminder(): Promise<void> {
-  if (!isNative || !Notifications) return;
-  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-  const utangNotifs = scheduled.filter(n => n.content.data?.type === 'utang_reminder');
-  await Promise.all(utangNotifs.map(n => Notifications!.cancelScheduledNotificationAsync(n.identifier)));
-}
-
 export async function scheduleDailyReport(): Promise<string> {
   if (!isNative || !Notifications) return '';
   await cancelDailyReport();

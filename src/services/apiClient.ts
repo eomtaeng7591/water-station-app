@@ -1,4 +1,3 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 function resolveApiBase(): string {
@@ -13,26 +12,10 @@ function resolveApiBase(): string {
 
 export const API_BASE = resolveApiBase();
 
-async function getToken(): Promise<string | null> {
-  return AsyncStorage.getItem('auth_token');
-}
-
-export async function saveToken(token: string): Promise<void> {
-  await AsyncStorage.setItem('auth_token', token);
-}
-
-export async function clearToken(): Promise<void> {
-  await AsyncStorage.removeItem('auth_token');
-}
-
 async function request<T>(method: string, path: string, body?: any): Promise<T> {
-  const token = await getToken();
   const res = await fetch(`${API_BASE}${path}`, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();

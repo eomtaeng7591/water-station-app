@@ -6,7 +6,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { reportService, DailyStatsResult } from '../../services/reportService';
-import { creditService } from '../../services/creditService';
 import { TargetProgress } from '../../types';
 import { exportDailyCSV, exportDailyPDF, exportMonthlyCSV, exportMonthlyPDF } from '../../services/exportService';
 import { COLORS } from '../../constants';
@@ -45,9 +44,8 @@ export default function DashboardScreen() {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [daily, setDaily] = useState<DailyStatsResult>({
-    walkin: 0, delivery: 0, total: 0, orderCount: 0, cash: 0, ewallet: 0, credit: 0,
+    walkin: 0, delivery: 0, total: 0, orderCount: 0, cash: 0, gcash: 0, maya: 0,
   });
-  const [outstanding, setOutstanding] = useState(0);
   const [progress, setProgress] = useState<TargetProgress | null>(null);
 
   const [exportVisible, setExportVisible] = useState(false);
@@ -70,13 +68,11 @@ export default function DashboardScreen() {
   const loadDaily = useCallback(async () => {
     setLoading(true);
     try {
-      const [d, o, p] = await Promise.all([
+      const [d, p] = await Promise.all([
         reportService.getDailyStats(),
-        creditService.getTotalOutstanding(),
         reportService.getTargetProgress(),
       ]);
       setDaily(d);
-      setOutstanding(o);
       setProgress(p);
     } catch (e) {
       console.error(e);
@@ -153,11 +149,6 @@ export default function DashboardScreen() {
             <Text style={styles.summaryLabel}>Today's Sales</Text>
             <Text style={[styles.summaryValue, { color: COLORS.primary }]}>₱{daily.total.toLocaleString()}</Text>
             <Text style={styles.summarySub}>{daily.orderCount} orders</Text>
-          </View>
-          <View style={[styles.summaryCard, { flex: 1 }]}>
-            <Text style={styles.summaryLabel}>Total Outstanding</Text>
-            <Text style={[styles.summaryValue, { color: COLORS.danger }]}>₱{outstanding.toLocaleString()}</Text>
-            <Text style={styles.summarySub}>Credit Balance</Text>
           </View>
         </View>
 
@@ -323,9 +314,9 @@ function TargetCard({ progress }: { progress: TargetProgress }) {
 
 function DailyDetail({ data }: { data: DailyStatsResult }) {
   const total = data.total;
-  const cashPct  = total > 0 ? (data.cash   / total) * 100 : 0;
-  const walletPct = total > 0 ? (data.ewallet / total) * 100 : 0;
-  const creditPct = total > 0 ? (data.credit  / total) * 100 : 0;
+  const cashPct = total > 0 ? (data.cash / total) * 100 : 0;
+  const gcashPct = total > 0 ? (data.gcash / total) * 100 : 0;
+  const mayaPct = total > 0 ? (data.maya / total) * 100 : 0;
 
   return (
     <View style={styles.detail}>
@@ -350,8 +341,8 @@ function DailyDetail({ data }: { data: DailyStatsResult }) {
       {/* Payment breakdown */}
       <Text style={styles.payTitle}>Payment Breakdown</Text>
       <PayBar label="Cash" value={data.cash} pct={cashPct} color={COLORS.cash} />
-      <PayBar label="Gcash" value={data.ewallet} pct={walletPct} color={COLORS.ewallet} />
-      <PayBar label="Credit" value={data.credit} pct={creditPct} color={COLORS.credit} />
+      <PayBar label="Gcash" value={data.gcash} pct={gcashPct} color={COLORS.ewallet} />
+      <PayBar label="Maya" value={data.maya} pct={mayaPct} color="#0EA5E9" />
     </View>
   );
 }

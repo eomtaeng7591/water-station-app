@@ -26,13 +26,8 @@ export async function shareOrderReceipt(order: Order): Promise<void> {
   const addressRow = order.customer?.address
     ? `<tr><td class="key">Address</td><td class="val">${order.customer.address}</td></tr>`
     : '';
-  const riderRow = (order as any).rider_name
-    ? `<tr><td class="key">Rider</td><td class="val">${(order as any).rider_name}</td></tr>`
-    : '';
-  const refLabel = order.payment_type === 'MAYA' ? 'Maya Ref' : 'GCash Ref';
-  const refColor = order.payment_type === 'MAYA' ? '#0EA5E9' : '#6D28D9';
-  const gcashRefRow = order.gcash_ref
-    ? `<tr><td class="key">${refLabel}</td><td class="val" style="color:${refColor};font-weight:700">${order.gcash_ref}</td></tr>`
+  const riderRow = order.rider_name
+    ? `<tr><td class="key">Rider</td><td class="val">${order.rider_name}</td></tr>`
     : '';
   const remarksRow = order.remarks
     ? `<tr><td class="key">Note</td><td class="val" style="font-style:italic">${order.remarks}</td></tr>`
@@ -168,7 +163,7 @@ export async function shareOrderReceipt(order: Order): Promise<void> {
   <span class="pay-badge">${order.payment_type}</span>
 </div>
 
-${(gcashRefRow || remarksRow) ? `<table>${gcashRefRow}${remarksRow}</table>` : ''}
+${remarksRow ? `<table>${remarksRow}</table>` : ''}
 
 <div class="footer">
   <strong>Thank you for your purchase!</strong><br/>

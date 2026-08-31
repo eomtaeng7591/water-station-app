@@ -5,21 +5,16 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   requestNotificationPermission,
-  scheduleUtangReminder,
-  cancelUtangReminder,
   scheduleDailyReport,
   cancelDailyReport,
   sendTestNotification,
 } from '../../services/notificationService';
-import { creditService } from '../../services/creditService';
 import { COLORS } from '../../constants';
 
-const PREF_UTANG = 'notif_utang_enabled';
 const PREF_DAILY = 'notif_daily_enabled';
 
 export default function NotificationSettings() {
   const [hasPermission, setHasPermission] = useState(false);
-  const [utangEnabled, setUtangEnabled] = useState(false);
   const [dailyEnabled, setDailyEnabled] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -28,11 +23,7 @@ export default function NotificationSettings() {
   }, []);
 
   const loadPrefs = async () => {
-    const [u, d] = await Promise.all([
-      AsyncStorage.getItem(PREF_UTANG),
-      AsyncStorage.getItem(PREF_DAILY),
-    ]);
-    setUtangEnabled(u === 'true');
+    const d = await AsyncStorage.getItem(PREF_DAILY);
     setDailyEnabled(d === 'true');
 
     const ok = await requestNotificationPermission();
@@ -43,24 +34,6 @@ export default function NotificationSettings() {
     const ok = await requestNotificationPermission();
     setHasPermission(ok);
     if (!ok) Alert.alert('Permission Required', 'Please enable notifications in Settings > Notifications.');
-  };
-
-  const toggleUtang = async (val: boolean) => {
-    if (val && !hasPermission) { handleRequestPermission(); return; }
-    setLoading(true);
-    try {
-      if (val) {
-        const total = await creditService.getTotalOutstanding();
-        const credits = await creditService.getOutstandingCredits();
-        await scheduleUtangReminder(credits.length, total);
-      } else {
-        await cancelUtangReminder();
-      }
-      setUtangEnabled(val);
-      await AsyncStorage.setItem(PREF_UTANG, String(val));
-    } finally {
-      setLoading(false);
-    }
   };
 
   const toggleDaily = async (val: boolean) => {
@@ -97,19 +70,6 @@ export default function NotificationSettings() {
       )}
 
       {loading && <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 8 }} />}
-
-      <View style={styles.row}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.rowLabel}>Credit Reminder</Text>
-          <Text style={styles.rowSub}>Daily 9AM · Overdue credits reminder</Text>
-        </View>
-        <Switch
-          value={utangEnabled}
-          onValueChange={toggleUtang}
-          trackColor={{ true: COLORS.primary }}
-          disabled={loading}
-        />
-      </View>
 
       <View style={styles.row}>
         <View style={{ flex: 1 }}>

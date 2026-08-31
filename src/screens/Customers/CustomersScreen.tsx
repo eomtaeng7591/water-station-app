@@ -126,27 +126,7 @@ export default function CustomersScreen() {
                     {item.total_orders} orders · ₱{Number(item.total_spend ?? 0).toLocaleString()}
                   </Text>
                 )}
-                {(item.tags ?? []).length > 0 && (
-                  <View style={styles.tagRow}>
-                    {(item.tags ?? []).slice(0, 3).map(tag => (
-                      <View key={tag} style={styles.tagChip}>
-                        <Text style={styles.tagChipText}>{tag}</Text>
-                      </View>
-                    ))}
-                    {(item.tags ?? []).length > 3 && (
-                      <View style={styles.tagChip}>
-                        <Text style={styles.tagChipText}>+{(item.tags ?? []).length - 3}</Text>
-                      </View>
-                    )}
-                  </View>
-                )}
               </View>
-              {(item.total_outstanding ?? 0) > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>₱{(item.total_outstanding ?? 0).toLocaleString()}</Text>
-                  <Text style={styles.badgeSub}>Credit</Text>
-                </View>
-              )}
             </TouchableOpacity>
           );
         }}

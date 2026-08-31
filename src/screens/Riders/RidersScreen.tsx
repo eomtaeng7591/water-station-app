@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { riderService } from '../../services/riderService';
-import { api } from '../../services/apiClient';
+import { reportService } from '../../services/reportService';
 import { Rider, RiderStat } from '../../types';
 import { COLORS } from '../../constants';
 
@@ -47,8 +47,7 @@ export default function RidersScreen() {
   const loadStats = useCallback(async (year: number, month: number) => {
     setLoadingStats(true);
     try {
-      const monthStr = `${year}-${String(month).padStart(2, '0')}`;
-      const data = await api.get<RiderStat[]>(`/reports/riders?month=${monthStr}`);
+      const data = await reportService.getRiderStats(year, month);
       setRiderStats(data);
     } catch (e) {
       console.error(e);
@@ -144,7 +143,7 @@ export default function RidersScreen() {
     ]);
   };
 
-  const statForRider = (riderId: number) =>
+  const statForRider = (riderId: string) =>
     riderStats.find(s => s.rider_id === riderId);
 
   const totalDeliveries = riderStats.reduce((s, r) => s + r.delivery_count, 0);

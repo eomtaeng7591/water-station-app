@@ -1,16 +1,17 @@
-import { api, saveToken, clearToken } from './apiClient';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from './supabase';
+import { clearStoreContextCache } from './storeContext';
 
 export const authService = {
   async login(email: string, password: string): Promise<void> {
-    const res = await api.post<{ token: string }>('/auth/login', { email, password });
-    await saveToken(res.token);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw new Error(error.message);
   },
   async logout(): Promise<void> {
-    await clearToken();
+    await supabase.auth.signOut();
+    clearStoreContextCache();
   },
   async isLoggedIn(): Promise<boolean> {
-    const token = await AsyncStorage.getItem('auth_token');
-    return !!token;
+    const { data } = await supabase.auth.getSession();
+    return !!data.session;
   },
 };

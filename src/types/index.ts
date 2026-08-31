@@ -1,19 +1,16 @@
 export interface Customer {
-  customer_id: number;
+  customer_id: string;
   customer_name: string;
   phone_number: string;
   address: string;
-  is_verified: boolean;
   created_at: string;
-  total_outstanding?: number;
   total_orders?: number;
   total_spend?: number;
   notes?: string;
-  tags?: string[];
 }
 
 export interface SystemSettings {
-  setting_id: number;
+  store_id: string;
   delivery_price: number;
   walkin_price: number;
   daily_target: number;
@@ -31,13 +28,12 @@ export interface TargetProgress {
 }
 
 export type OrderType = 'WALK-IN' | 'DELIVERY';
-export type PaymentType = 'CASH' | 'GCASH' | 'MAYA' | 'CREDIT';
+export type PaymentType = 'CASH' | 'GCASH' | 'MAYA';
 export type DeliveryStatus = 'PENDING' | 'COMPLETED';
-export type CreditStatus = 'UNPAID' | 'PARTIAL' | 'PAID';
 
 export interface Order {
-  order_id: number;
-  customer_id: number | null;
+  order_id: string;
+  customer_id: string | null;
   order_type: OrderType;
   unit_price: number;
   quantity: number;
@@ -47,13 +43,14 @@ export interface Order {
   remarks: string | null;
   gcash_ref: string | null;
   receipt_no: string | null;
-  rider_id: number | null;
+  rider_id: string | null;
+  rider_name?: string | null;
   created_at: string;
   customer?: Customer;
 }
 
 export interface Rider {
-  rider_id: number;
+  rider_id: string;
   rider_name: string;
   phone_number: string | null;
   is_active: boolean;
@@ -61,7 +58,7 @@ export interface Rider {
 }
 
 export interface OrderInput {
-  customer_id?: number | null;
+  customer_id?: string | null;
   order_type: OrderType;
   unit_price: number;
   quantity: number;
@@ -69,22 +66,7 @@ export interface OrderInput {
   payment_type: PaymentType;
   delivery_status: DeliveryStatus;
   remarks?: string;
-  gcash_ref?: string | null;
-  rider_id?: number | null;
-  due_date?: string | null;
-}
-
-export interface Credit {
-  credit_id: number;
-  customer_id: number;
-  order_id: number;
-  amount: number;
-  remaining_balance: number;
-  status: CreditStatus;
-  due_date: string | null;
-  updated_at: string;
-  customer?: Customer;
-  order?: Order;
+  rider_id?: string | null;
 }
 
 export interface DailyStat {
@@ -124,7 +106,7 @@ export interface YearlyStat {
 }
 
 export interface RiderStat {
-  rider_id: number;
+  rider_id: string;
   rider_name: string;
   phone_number: string | null;
   is_active: boolean;

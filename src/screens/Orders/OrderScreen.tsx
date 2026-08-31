@@ -3,7 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
   StyleSheet, Alert, ActivityIndicator, Modal, FlatList, RefreshControl,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
 import { COLORS } from '../../constants';
 import { settingsService } from '../../services/settingsService';
 import { customerService } from '../../services/customerService';
@@ -13,7 +13,6 @@ import { useOfflineSync } from '../../hooks/useOfflineSync';
 import { useOrderSubmit } from '../../hooks/useOrderSubmit';
 import { Customer, Order, Rider, OrderType, PaymentType } from '../../types';
 import { shareOrderReceipt } from '../../services/receiptService';
-import { addDays, format } from 'date-fns';
 
 type ActiveView = 'form' | 'today';
 type FilterType = 'ALL' | 'WALK-IN' | 'DELIVERY';
@@ -41,15 +40,15 @@ export default function OrderScreen() {
   const [_paymentType, setPaymentType] = useState<PaymentType>('CASH');
   const [deliveryStatus, setDeliveryStatus] = useState<'PENDING' | 'COMPLETED'>('PENDING');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
-  const [unitPrice, setUnitPrice] = useState(0);
+  const [walkinPrice, setWalkinPrice] = useState(40);
+  const [deliveryPrice, setDeliveryPrice] = useState(45);
+  const unitPrice = orderType === 'DELIVERY' ? deliveryPrice : walkinPrice;
   const [loading, setLoading] = useState(false);
   const [searchModal, setSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Customer[]>([]);
   const [riders, setRiders] = useState<Rider[]>([]);
   const [selectedRider, setSelectedRider] = useState<Rider | null>(null);
-  const [dueDays, setDueDays] = useState<number | null>(null);
-  const [gcashRef, setGcashRef] = useState('');
 
   const [todayOrders, setTodayOrders] = useState<Order[]>([]);
   const [pendingDeliveries, setPendingDeliveries] = useState<Order[]>([]);
@@ -64,7 +63,7 @@ export default function OrderScreen() {
 
   const totalAmount = unitPrice * (parseInt(quantity) || 0);
 
-  useEffect(() => { loadSettings(); }, [orderType]);
+  useEffect(() => { loadSettings(); }, []);
 
   useEffect(() => {
     riderService.getActiveRiders().then(setRiders).catch(() => {});
@@ -73,10 +72,9 @@ export default function OrderScreen() {
   const loadSettings = async () => {
     try {
       const s = await settingsService.getSettings();
-      setUnitPrice(orderType === 'DELIVERY' ? s.delivery_price : s.walkin_price);
-    } catch {
-      setUnitPrice(orderType === 'DELIVERY' ? 45 : 40);
-    }
+      setWalkinPrice(s.walkin_price);
+      setDeliveryPrice(s.delivery_price);
+    } catch {}
   };
 
   const loadOrderData = useCallback(async (date: string) => {
@@ -167,17 +165,13 @@ export default function OrderScreen() {
     setSearchResults([]);
   };
 
-  const handleSubmit = async (payment: PaymentType, ref?: string) => {
+  const handleSubmit = async (payment: PaymentType) => {
     if (!quantity || parseInt(quantity) < 1) {
       Alert.alert('Error', 'Please enter quantity.');
       return;
     }
     setLoading(true);
     try {
-      const dueDate = (payment === 'CREDIT' && dueDays)
-        ? format(addDays(new Date(), dueDays), 'yyyy-MM-dd')
-        : null;
-
       const orderInput = {
         customer_id: selectedCustomer?.customer_id ?? null,
         order_type: orderType,
@@ -187,9 +181,7 @@ export default function OrderScreen() {
         payment_type: payment,
         delivery_status: orderType === 'DELIVERY' ? deliveryStatus : 'COMPLETED' as const,
         remarks: remarks || undefined,
-        gcash_ref: ref || null,
         rider_id: selectedRider?.rider_id ?? null,
-        due_date: dueDate,
       };
 
       const result = await submitOrder(orderInput);
@@ -197,11 +189,10 @@ export default function OrderScreen() {
         await refreshPendingCount();
         Alert.alert('📴 Saved Offline', `₱${totalAmount.toLocaleString()} queued — will sync when online.`);
       } else {
-        const dueLine = dueDate ? `\nDue: ${dueDate}` : '';
         const createdOrder = result.order;
         Alert.alert(
           '✅ Order Saved',
-          `${payment}  ₱${totalAmount.toLocaleString()}${dueLine}`,
+          `${payment}  ₱${totalAmount.toLocaleString()}`,
           [
             {
               text: '📄 Print Receipt',
@@ -220,10 +211,8 @@ export default function OrderScreen() {
 
       setQuantity('');
       setRemarks('');
-      setGcashRef('');
       setSelectedCustomer(null);
       setSelectedRider(null);
-      setDueDays(null);
       setPaymentType('CASH');
       setOrderType('WALK-IN');
     } catch (e: any) {
@@ -270,7 +259,7 @@ export default function OrderScreen() {
                   {t === 'WALK-IN' ? '🚶 WALK-IN' : '🏍️ DELIVERY'}
                 </Text>
                 <Text style={[styles.priceLabel, orderType === t && styles.priceLabelActive]}>
-                  ₱{orderType === t ? unitPrice : (t === 'DELIVERY' ? 45 : 40)} / gallon
+                  ₱{t === 'DELIVERY' ? deliveryPrice : walkinPrice} / gallon
                 </Text>
               </TouchableOpacity>
             ))}
@@ -385,46 +374,14 @@ export default function OrderScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.payBtn, { borderColor: COLORS.ewallet }]}
-              onPress={() => {
-                if (!quantity || parseInt(quantity) < 1) {
-                  Alert.alert('Error', 'Please enter quantity.');
-                  return;
-                }
-                Alert.prompt(
-                  '📱 Gcash Reference',
-                  'Enter GCash reference number (optional)',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Confirm', onPress: (ref: string | undefined) => handleSubmit('GCASH', ref?.trim() || undefined) },
-                  ],
-                  'plain-text',
-                  gcashRef,
-                  'number-pad',
-                );
-              }}
+              onPress={() => handleSubmit('GCASH')}
               disabled={loading}
             >
               <Text style={[styles.payBtnText, { color: COLORS.ewallet }]}>📱 Gcash</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.payBtn, { borderColor: '#0EA5E9' }]}
-              onPress={() => {
-                if (!quantity || parseInt(quantity) < 1) {
-                  Alert.alert('Error', 'Please enter quantity.');
-                  return;
-                }
-                Alert.prompt(
-                  '💙 Maya Pay Reference',
-                  'Enter Maya reference number (optional)',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Confirm', onPress: (ref: string | undefined) => handleSubmit('MAYA', ref?.trim() || undefined) },
-                  ],
-                  'plain-text',
-                  '',
-                  'number-pad',
-                );
-              }}
+              onPress={() => handleSubmit('MAYA')}
               disabled={loading}
             >
               <Text style={[styles.payBtnText, { color: '#0EA5E9' }]}>💙 Maya</Text>
@@ -545,14 +502,12 @@ export default function OrderScreen() {
                     <View style={[styles.payBadge, {
                       backgroundColor: order.payment_type === 'CASH' ? '#EAF3DE'
                         : order.payment_type === 'GCASH' ? '#EDE9FE'
-                        : order.payment_type === 'MAYA' ? '#E0F2FE'
-                        : '#FCEBEB',
+                        : '#E0F2FE',
                     }]}>
                       <Text style={[styles.payBadgeText, {
                         color: order.payment_type === 'CASH' ? COLORS.cash
                           : order.payment_type === 'GCASH' ? COLORS.ewallet
-                          : order.payment_type === 'MAYA' ? '#0EA5E9'
-                          : COLORS.credit,
+                          : '#0EA5E9',
                       }]}>
                         {order.payment_type === 'GCASH' ? 'GCash'
                           : order.payment_type === 'MAYA' ? 'Maya'
@@ -601,33 +556,35 @@ export default function OrderScreen() {
       )}
 
       <Modal visible={searchModal} animationType="slide" onRequestClose={() => setSearchModal(false)}>
-        <SafeAreaView style={styles.modal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Search Customer</Text>
-            <TouchableOpacity onPress={() => setSearchModal(false)}>
-              <Text style={styles.modalClose}>✕</Text>
-            </TouchableOpacity>
-          </View>
-          <TextInput
-            style={styles.searchInput}
-            value={searchQuery}
-            onChangeText={handleSearch}
-            placeholder="Name or Phone"
-            placeholderTextColor={COLORS.textMuted}
-            autoFocus
-          />
-          <FlatList
-            data={searchResults}
-            keyExtractor={item => String(item.customer_id)}
-            renderItem={({ item }) => (
-              <TouchableOpacity style={styles.searchItem} onPress={() => handleSelectCustomer(item)}>
-                <Text style={styles.searchItemName}>{item.customer_name}</Text>
-                <Text style={styles.searchItemSub}>{item.phone_number}</Text>
-                <Text style={styles.searchItemAddr}>{item.address}</Text>
+        <SafeAreaProvider>
+          <SafeAreaView style={styles.modal}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Search Customer</Text>
+              <TouchableOpacity onPress={() => setSearchModal(false)}>
+                <Text style={styles.modalClose}>✕</Text>
               </TouchableOpacity>
-            )}
-          />
-        </SafeAreaView>
+            </View>
+            <TextInput
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={handleSearch}
+              placeholder="Name or Phone"
+              placeholderTextColor={COLORS.textMuted}
+              autoFocus
+            />
+            <FlatList
+              data={searchResults}
+              keyExtractor={item => String(item.customer_id)}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={styles.searchItem} onPress={() => handleSelectCustomer(item)}>
+                  <Text style={styles.searchItemName}>{item.customer_name}</Text>
+                  <Text style={styles.searchItemSub}>{item.phone_number}</Text>
+                  <Text style={styles.searchItemAddr}>{item.address}</Text>
+                </TouchableOpacity>
+              )}
+            />
+          </SafeAreaView>
+        </SafeAreaProvider>
       </Modal>
     </SafeAreaView>
   );
@@ -761,14 +718,6 @@ const styles = StyleSheet.create({
   riderChipActive: { borderColor: COLORS.delivery, backgroundColor: '#FEF3C7' },
   riderChipText: { fontSize: 13, color: COLORS.textSecondary },
   riderChipTextActive: { color: COLORS.delivery, fontWeight: '700' },
-  dueDayBtn: {
-    flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: 10,
-    padding: 10, alignItems: 'center' as const, backgroundColor: COLORS.surface,
-  },
-  dueDayBtnActive: { borderColor: COLORS.credit, backgroundColor: '#FFF0F5' },
-  dueDayText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
-  dueDayTextActive: { color: COLORS.credit },
-  dueDatePreview: { fontSize: 11, color: COLORS.credit, marginTop: 2 },
   modal: { flex: 1, backgroundColor: COLORS.background },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',

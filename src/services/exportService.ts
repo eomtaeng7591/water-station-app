@@ -1,8 +1,8 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
-import { api } from './apiClient';
-import { MonthlySummary } from '../types';
+import { orderService } from './orderService';
+import { reportService } from './reportService';
 
 interface ExportOrder {
   receipt_no: string;
@@ -22,12 +22,41 @@ interface ExportSummary {
   delivery_total: number;
   cash_total: number;
   ewallet_total: number;
-  credit_total: number;
   grand_total: number;
 }
 
-async function fetchDailyReport(date: string) {
-  return api.get<{ summary: ExportSummary; orders: ExportOrder[] }>(`/reports/daily?date=${date}`);
+async function fetchDailyReport(date: string): Promise<{ summary: ExportSummary; orders: ExportOrder[] }> {
+  const orders = await orderService.getOrdersByDate(date);
+
+  const exportOrders: ExportOrder[] = orders.map(o => ({
+    receipt_no: o.receipt_no ?? o.order_id,
+    customer_name: o.customer?.customer_name ?? 'Walk-in',
+    order_type: o.order_type,
+    quantity: o.quantity,
+    unit_price: o.unit_price,
+    total_amount: o.total_amount,
+    payment_type: o.payment_type,
+    delivery_status: o.delivery_status,
+  }));
+
+  let walkinTotal = 0, deliveryTotal = 0, cashTotal = 0, ewalletTotal = 0;
+  orders.forEach(o => {
+    if (o.order_type === 'WALK-IN') walkinTotal += o.total_amount; else deliveryTotal += o.total_amount;
+    if (o.payment_type === 'CASH') cashTotal += o.total_amount; else ewalletTotal += o.total_amount;
+  });
+
+  return {
+    summary: {
+      date,
+      order_count: orders.length,
+      walkin_total: walkinTotal,
+      delivery_total: deliveryTotal,
+      cash_total: cashTotal,
+      ewallet_total: ewalletTotal,
+      grand_total: walkinTotal + deliveryTotal,
+    },
+    orders: exportOrders,
+  };
 }
 
 export async function exportDailyCSV(date: string): Promise<void> {
@@ -54,7 +83,6 @@ export async function exportDailyCSV(date: string): Promise<void> {
     `Delivery Total,${summary.delivery_total.toFixed(2)}`,
     `Cash Total,${summary.cash_total.toFixed(2)}`,
     `E-Wallet Total,${summary.ewallet_total.toFixed(2)}`,
-    `Credit Total,${summary.credit_total.toFixed(2)}`,
     `Grand Total,${summary.grand_total.toFixed(2)}`,
   ];
 
@@ -124,7 +152,6 @@ export async function exportDailyPDF(date: string): Promise<void> {
   <div class="card"><div class="lbl">Delivery</div><div class="val">&#8369;${summary.delivery_total.toLocaleString()}</div></div>
   <div class="card"><div class="lbl">Cash</div><div class="val">&#8369;${summary.cash_total.toLocaleString()}</div></div>
   <div class="card"><div class="lbl">E-Wallet</div><div class="val">&#8369;${summary.ewallet_total.toLocaleString()}</div></div>
-  <div class="card"><div class="lbl">Credit</div><div class="val">&#8369;${summary.credit_total.toLocaleString()}</div></div>
 </div>
 <div class="grand">
   <div class="lbl">GRAND TOTAL</div>
@@ -143,7 +170,7 @@ export async function exportDailyPDF(date: string): Promise<void> {
 }
 
 export async function exportMonthlyCSV(year: number, month: number): Promise<void> {
-  const data = await api.get<MonthlySummary>(`/reports/monthly?year=${year}&month=${month}`);
+  const data = await reportService.getMonthlyStats(year, month);
   const monthLabel = `${year}-${String(month).padStart(2, '0')}`;
 
   const lines = [
@@ -175,7 +202,7 @@ export async function exportMonthlyCSV(year: number, month: number): Promise<voi
 }
 
 export async function exportMonthlyPDF(year: number, month: number): Promise<void> {
-  const data = await api.get<MonthlySummary>(`/reports/monthly?year=${year}&month=${month}`);
+  const data = await reportService.getMonthlyStats(year, month);
   const monthName = new Date(year, month - 1, 1).toLocaleDateString('en-US', {
     year: 'numeric', month: 'long',
   });
