@@ -121,14 +121,6 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
         <Text style={styles.title}>⚙️ Settings</Text>
 
         {/* Quick navigation cards */}
-        <TouchableOpacity style={styles.navCard} onPress={() => navigation.navigate('Inventory')}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.navCardTitle}>📦 Inventory Management</Text>
-            <Text style={styles.navCardSub}>Stock levels, restock, activity log</Text>
-          </View>
-          <Text style={styles.navCardArrow}>›</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity style={[styles.navCard, { backgroundColor: '#FFF7E6', borderColor: '#F59E0B40' }]} onPress={() => navigation.navigate('Riders')}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.navCardTitle, { color: '#92400E' }]}>🏍️ Rider Management</Text>

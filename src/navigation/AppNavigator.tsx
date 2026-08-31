@@ -11,7 +11,6 @@ import { authService } from '../services/authService';
 import { pinService } from '../services/pinService';
 import { useOfflineSync } from '../hooks/useOfflineSync';
 import OfflineBanner from '../components/OfflineBanner';
-import { inventoryService } from '../services/inventoryService';
 import { getCurrentStoreName } from '../services/storeContext';
 
 // Screens
@@ -106,19 +105,6 @@ const brandStyles = StyleSheet.create({
 
 function MainTabs({ onLogout }: { onLogout: () => void }) {
   const { isOnline, isSyncing, pendingCount, lastSyncResult } = useOfflineSync();
-  const [lowStockCount, setLowStockCount] = useState(0);
-
-  useEffect(() => {
-    const check = async () => {
-      try {
-        const items = await inventoryService.getAll();
-        setLowStockCount(items.filter(i => i.current_stock <= i.low_stock_threshold).length);
-      } catch {}
-    };
-    check();
-    const timer = setInterval(check, 30000);
-    return () => clearInterval(timer);
-  }, []);
 
   return (
     <View style={{ flex: 1 }}>
@@ -149,14 +135,7 @@ function MainTabs({ onLogout }: { onLogout: () => void }) {
         <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Dashboard' }} />
         <Tab.Screen name="Orders" component={OrderScreen} options={{ title: 'Orders' }} />
         <Tab.Screen name="Customers" component={CustomerStackScreen} options={{ title: 'Customers' }} />
-        <Tab.Screen
-          name="Settings"
-          options={{
-            title: 'Settings',
-            tabBarBadge: lowStockCount > 0 ? lowStockCount : undefined,
-            tabBarBadgeStyle: { backgroundColor: COLORS.danger, fontSize: 10 },
-          }}
-        >
+        <Tab.Screen name="Settings" options={{ title: 'Settings' }}>
           {() => <SettingsStackScreen onLogout={onLogout} />}
         </Tab.Screen>
       </Tab.Navigator>
