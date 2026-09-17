@@ -34,7 +34,7 @@ function TabIcon({ name, focused }: { name: string; focused: boolean }) {
     Dashboard: '📊', Orders: '🧾', Customers: '👥', Settings: '⚙️',
   };
   return (
-    <Text style={{ fontSize: focused ? 22 : 20, opacity: focused ? 1 : 0.55 }}>
+    <Text style={{ fontSize: focused ? 22 : 20, opacity: focused ? 1 : 0.85 }}>
       {icons[name]}
     </Text>
   );
@@ -105,6 +105,8 @@ const brandStyles = StyleSheet.create({
 
 function MainTabs({ onLogout }: { onLogout: () => void }) {
   const { isOnline, isSyncing, pendingCount, lastSyncResult } = useOfflineSync();
+  const insets = useSafeAreaInsets();
+  const tabBarBottomPadding = Math.max(insets.bottom, 6);
 
   return (
     <View style={{ flex: 1 }}>
@@ -120,16 +122,17 @@ function MainTabs({ onLogout }: { onLogout: () => void }) {
           headerShown: false,
           tabBarIcon: ({ focused }) => <TabIcon name={route.name} focused={focused} />,
           tabBarActiveTintColor: COLORS.primary,
-          tabBarInactiveTintColor: COLORS.textMuted,
+          tabBarInactiveTintColor: COLORS.textSecondary,
           tabBarStyle: {
             backgroundColor: COLORS.surface,
+            borderTopWidth: 1,
             borderTopColor: COLORS.border,
-            paddingBottom: 6,
+            paddingBottom: tabBarBottomPadding,
             paddingTop: 6,
             paddingHorizontal: 16,
-            height: 62,
+            height: 56 + tabBarBottomPadding,
           },
-          tabBarLabelStyle: { fontSize: 10, fontWeight: '500' },
+          tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
         })}
       >
         <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ title: 'Dashboard' }} />

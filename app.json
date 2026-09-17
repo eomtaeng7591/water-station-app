@@ -6,11 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#DBEFFB"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -28,11 +23,15 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#DBEFFB"
       },
-      "package": "com.purefect.waterstation"
+      "package": "com.purefect.waterstation",
+      "softwareKeyboardLayoutMode": "resize"
     },
     "plugins": [
       "expo-notifications",
-      "expo-updates"
+      "expo-updates",
+      "expo-sharing",
+      "expo-sqlite",
+      "expo-status-bar"
     ],
     "extra": {
       "eas": {

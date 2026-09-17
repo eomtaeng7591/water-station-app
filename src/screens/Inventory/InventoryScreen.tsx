@@ -196,7 +196,7 @@ export default function InventoryScreen() {
           style={styles.modalContainer}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
-          <TouchableOpacity style={StyleSheet.absoluteFillObject} activeOpacity={1} onPress={() => setModalVisible(false)} />
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setModalVisible(false)} />
           <View style={styles.sheet}>
           <Text style={styles.sheetTitle}>
             {modalMode === 'restock' ? `+ Restock — ${activeItem?.item_name}`
