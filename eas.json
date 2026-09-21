@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 5.9.0"
+    "version": ">= 5.9.0",
+    "promptToConfigurePushNotifications": false
   },
   "build": {
     "development": {
@@ -10,7 +11,8 @@
         "buildType": "apk"
       },
       "ios": {
-        "simulator": false
+        "simulator": false,
+        "credentialsSource": "local"
       }
     },
     "preview": {
@@ -19,7 +21,8 @@
         "buildType": "apk"
       },
       "ios": {
-        "simulator": true
+        "simulator": false,
+        "credentialsSource": "local"
       }
     },
     "production": {

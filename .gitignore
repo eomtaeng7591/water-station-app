@@ -3,3 +3,9 @@ node_modules
 .playwright-mcp/
 server/.env
 dist/
+
+# iOS signing files — never commit these
+credentials.json
+*.p12
+*.mobileprovision
+AppleDistribution.p12

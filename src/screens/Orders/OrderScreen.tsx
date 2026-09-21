@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { COLORS } from '../../constants';
 import { settingsService } from '../../services/settingsService';
 import { customerService } from '../../services/customerService';
@@ -64,7 +65,7 @@ export default function OrderScreen() {
 
   const totalAmount = unitPrice * (parseInt(quantity) || 0);
 
-  useEffect(() => { loadSettings(); }, []);
+  useFocusEffect(useCallback(() => { loadSettings(); }, []));
 
   useEffect(() => {
     riderService.getActiveRiders().then(setRiders).catch(() => {});
