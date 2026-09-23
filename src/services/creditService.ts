@@ -3,6 +3,15 @@ import { getCurrentStoreId, getCurrentUserId } from './storeContext';
 import { CreditBalance } from '../types';
 
 export const creditService = {
+  async getCustomersWithBalance(): Promise<{ customer_id: string; balance: number }[]> {
+    const { data, error } = await supabase
+      .from('customer_credit_balances')
+      .select('customer_id, balance')
+      .gt('balance', 0)
+      .order('balance', { ascending: false });
+    if (error) throw new Error(error.message);
+    return (data ?? []).map(r => ({ customer_id: r.customer_id, balance: Number(r.balance) }));
+  },
   async getCustomerBalance(customerId: string): Promise<CreditBalance> {
     const { data, error } = await supabase
       .from('customer_credit_balances')

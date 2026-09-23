@@ -69,6 +69,7 @@ export const orderService = {
         gallon_qty: input.quantity,
         notes: input.remarks || null,
         rider_id: input.rider_id ?? null,
+        container_type_id: input.container_type_id ?? null,
         completed_at: isCompleted ? nowIso : null,
       })
       .select('id')

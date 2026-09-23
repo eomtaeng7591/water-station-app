@@ -47,11 +47,19 @@ export default function OrderScreen() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [walkinPrice, setWalkinPrice] = useState(40);
   const [deliveryPrice, setDeliveryPrice] = useState(45);
-  const unitPrice = orderType === 'DELIVERY' ? deliveryPrice : walkinPrice;
+  const [selectedContainerType, setSelectedContainerType] = useState<ContainerType | null>(null);
+  const containerPrice = selectedContainerType
+    ? (orderType === 'DELIVERY' ? selectedContainerType.delivery_price : selectedContainerType.walkin_price)
+    : null;
+  const unitPrice = containerPrice ?? (orderType === 'DELIVERY' ? deliveryPrice : walkinPrice);
   const [loading, setLoading] = useState(false);
   const [searchModal, setSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Customer[]>([]);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [quickAddName, setQuickAddName] = useState('');
+  const [quickAddPhone, setQuickAddPhone] = useState('');
+  const [quickAddLoading, setQuickAddLoading] = useState(false);
   const [riders, setRiders] = useState<Rider[]>([]);
   const [selectedRider, setSelectedRider] = useState<Rider | null>(null);
   const [containerTypes, setContainerTypes] = useState<ContainerType[]>([]);
@@ -162,6 +170,7 @@ export default function OrderScreen() {
 
   const handleSearch = async (q: string) => {
     setSearchQuery(q);
+    setQuickAddOpen(false);
     if (q.length < 1) { setSearchResults([]); return; }
     const results = await customerService.searchCustomers(q);
     setSearchResults(results);
@@ -172,6 +181,33 @@ export default function OrderScreen() {
     setSearchModal(false);
     setSearchQuery('');
     setSearchResults([]);
+    setQuickAddOpen(false);
+    setQuickAddName('');
+    setQuickAddPhone('');
+  };
+
+  const closeSearchModal = () => {
+    setSearchModal(false);
+    setQuickAddOpen(false);
+    setQuickAddName('');
+    setQuickAddPhone('');
+  };
+
+  const handleQuickAddCustomer = async () => {
+    const name = quickAddName.trim();
+    if (!name) {
+      Alert.alert('Error', 'Please enter a name.');
+      return;
+    }
+    setQuickAddLoading(true);
+    try {
+      const created = await customerService.createCustomer(name, quickAddPhone.trim(), '');
+      handleSelectCustomer(created);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to add customer.');
+    } finally {
+      setQuickAddLoading(false);
+    }
   };
 
   const getContainerDraft = (containerTypeId: string, field: ContainerField): string =>
@@ -229,6 +265,7 @@ export default function OrderScreen() {
         delivery_status: orderType === 'DELIVERY' ? deliveryStatus : 'COMPLETED' as const,
         remarks: remarks || undefined,
         rider_id: selectedRider?.rider_id ?? null,
+        container_type_id: selectedContainerType?.container_type_id ?? null,
       };
 
       const result = await submitOrder(orderInput);
@@ -270,6 +307,7 @@ export default function OrderScreen() {
       setRemarks('');
       setSelectedCustomer(null);
       setSelectedRider(null);
+      setSelectedContainerType(null);
       setPaymentType('CASH');
       setOrderType('WALK-IN');
       setContainerDrafts({});
@@ -399,6 +437,37 @@ export default function OrderScreen() {
                   </TouchableOpacity>
                 ))}
               </ScrollView>
+            </View>
+          )}
+
+          {containerTypes.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.label}>Container Size (optional)</Text>
+              <View style={styles.containerChipRow}>
+                <TouchableOpacity
+                  style={[styles.containerChip, !selectedContainerType && styles.containerChipActive]}
+                  onPress={() => setSelectedContainerType(null)}
+                >
+                  <Text style={[styles.containerChipText, !selectedContainerType && styles.containerChipTextActive]}>
+                    Store Price
+                  </Text>
+                </TouchableOpacity>
+                {containerTypes.map(ct => {
+                  const active = selectedContainerType?.container_type_id === ct.container_type_id;
+                  const price = orderType === 'DELIVERY' ? ct.delivery_price : ct.walkin_price;
+                  return (
+                    <TouchableOpacity
+                      key={ct.container_type_id}
+                      style={[styles.containerChip, active && styles.containerChipActive]}
+                      onPress={() => setSelectedContainerType(ct)}
+                    >
+                      <Text style={[styles.containerChipText, active && styles.containerChipTextActive]}>
+                        {ct.label}{price !== null ? ` · ₱${price}` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
           )}
 
@@ -704,34 +773,83 @@ export default function OrderScreen() {
         </ScrollView>
       )}
 
-      <Modal visible={searchModal} animationType="slide" onRequestClose={() => setSearchModal(false)}>
+      <Modal visible={searchModal} animationType="slide" onRequestClose={closeSearchModal}>
         <SafeAreaProvider>
           <SafeAreaView style={styles.modal}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Search Customer</Text>
-              <TouchableOpacity onPress={() => setSearchModal(false)}>
-                <Text style={styles.modalClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              style={styles.searchInput}
-              value={searchQuery}
-              onChangeText={handleSearch}
-              placeholder="Name or Phone"
-              placeholderTextColor={COLORS.textMuted}
-              autoFocus
-            />
-            <FlatList
-              data={searchResults}
-              keyExtractor={item => String(item.customer_id)}
-              renderItem={({ item }) => (
-                <TouchableOpacity style={styles.searchItem} onPress={() => handleSelectCustomer(item)}>
-                  <Text style={styles.searchItemName}>{item.customer_name}</Text>
-                  <Text style={styles.searchItemSub}>{item.phone_number}</Text>
-                  <Text style={styles.searchItemAddr}>{item.address}</Text>
+            <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Search Customer</Text>
+                <TouchableOpacity onPress={closeSearchModal}>
+                  <Text style={styles.modalClose}>✕</Text>
                 </TouchableOpacity>
-              )}
-            />
+              </View>
+              <TextInput
+                style={styles.searchInput}
+                value={searchQuery}
+                onChangeText={handleSearch}
+                placeholder="Name or Phone"
+                placeholderTextColor={COLORS.textMuted}
+                autoFocus
+              />
+              <FlatList
+                data={searchResults}
+                keyExtractor={item => String(item.customer_id)}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => (
+                  <TouchableOpacity style={styles.searchItem} onPress={() => handleSelectCustomer(item)}>
+                    <Text style={styles.searchItemName}>{item.customer_name}</Text>
+                    <Text style={styles.searchItemSub}>{item.phone_number}</Text>
+                    <Text style={styles.searchItemAddr}>{item.address}</Text>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  searchQuery.trim().length > 0 ? (
+                    <View style={styles.quickAddBox}>
+                      <Text style={styles.quickAddEmptyText}>No customers found for "{searchQuery}"</Text>
+                      {quickAddOpen ? (
+                        <>
+                          <Text style={styles.inputLabel}>Name *</Text>
+                          <TextInput
+                            style={styles.quickAddInput}
+                            value={quickAddName}
+                            onChangeText={setQuickAddName}
+                            placeholder="Customer Name"
+                            placeholderTextColor={COLORS.textMuted}
+                            autoFocus
+                          />
+                          <Text style={styles.inputLabel}>Phone (optional)</Text>
+                          <TextInput
+                            style={styles.quickAddInput}
+                            value={quickAddPhone}
+                            onChangeText={setQuickAddPhone}
+                            placeholder="09XX-XXX-XXXX"
+                            placeholderTextColor={COLORS.textMuted}
+                            keyboardType="phone-pad"
+                          />
+                          <TouchableOpacity
+                            style={styles.quickAddSaveBtn}
+                            onPress={handleQuickAddCustomer}
+                            disabled={quickAddLoading}
+                          >
+                            {quickAddLoading
+                              ? <ActivityIndicator color="#fff" />
+                              : <Text style={styles.quickAddSaveBtnText}>Save & Select</Text>
+                            }
+                          </TouchableOpacity>
+                        </>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.quickAddOpenBtn}
+                          onPress={() => { setQuickAddOpen(true); setQuickAddName(searchQuery); }}
+                        >
+                          <Text style={styles.quickAddOpenBtnText}>+ 새 고객으로 등록</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  ) : null
+                }
+              />
+            </KeyboardAvoidingView>
           </SafeAreaView>
         </SafeAreaProvider>
       </Modal>
@@ -885,6 +1003,14 @@ const styles = StyleSheet.create({
   riderChipActive: { borderColor: COLORS.delivery, backgroundColor: '#FEF3C7' },
   riderChipText: { fontSize: 13, color: COLORS.textSecondary },
   riderChipTextActive: { color: COLORS.delivery, fontWeight: '700' },
+  containerChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  containerChip: {
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 8, backgroundColor: COLORS.surface,
+  },
+  containerChipActive: { borderColor: COLORS.primary, backgroundColor: '#E1F5EE' },
+  containerChipText: { fontSize: 13, color: COLORS.textSecondary },
+  containerChipTextActive: { color: COLORS.primary, fontWeight: '700' },
   modal: { flex: 1, backgroundColor: COLORS.background },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
@@ -903,4 +1029,15 @@ const styles = StyleSheet.create({
   searchItemName: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
   searchItemSub: { fontSize: 13, color: COLORS.textSecondary },
   searchItemAddr: { fontSize: 12, color: COLORS.textMuted },
+  quickAddBox: { padding: 16, alignItems: 'center' },
+  quickAddEmptyText: { fontSize: 14, color: COLORS.textMuted, marginBottom: 16, textAlign: 'center' },
+  inputLabel: { alignSelf: 'flex-start', fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6, marginTop: 10, width: '100%' },
+  quickAddInput: {
+    width: '100%', backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 10, padding: 12, fontSize: 15, color: COLORS.textPrimary,
+  },
+  quickAddSaveBtn: { width: '100%', backgroundColor: COLORS.primary, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 16 },
+  quickAddSaveBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  quickAddOpenBtn: { borderWidth: 1.5, borderColor: COLORS.primary, borderRadius: 10, paddingHorizontal: 20, paddingVertical: 10 },
+  quickAddOpenBtnText: { color: COLORS.primary, fontSize: 14, fontWeight: '700' },
 });

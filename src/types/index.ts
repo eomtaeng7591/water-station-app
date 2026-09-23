@@ -63,6 +63,8 @@ export interface ContainerType {
   owned_qty: number;
   sort_order: number;
   is_active: boolean;
+  walkin_price: number | null;
+  delivery_price: number | null;
 }
 
 export type ContainerTxnType = 'borrow' | 'purchase' | 'return';
@@ -96,6 +98,7 @@ export interface OrderInput {
   delivery_status: DeliveryStatus;
   remarks?: string;
   rider_id?: string | null;
+  container_type_id?: string | null;
 }
 
 export interface DailyStat {

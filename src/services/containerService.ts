@@ -9,6 +9,8 @@ function mapContainerType(row: any): ContainerType {
     owned_qty: row.owned_qty,
     sort_order: row.sort_order,
     is_active: row.is_active,
+    walkin_price: row.walkin_price === null || row.walkin_price === undefined ? null : Number(row.walkin_price),
+    delivery_price: row.delivery_price === null || row.delivery_price === undefined ? null : Number(row.delivery_price),
   };
 }
 

@@ -1,24 +1,29 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, FlatList, TextInput, TouchableOpacity,
   StyleSheet, RefreshControl, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { customerService } from '../../services/customerService';
+import { creditService } from '../../services/creditService';
 import { Customer } from '../../types';
 import { COLORS } from '../../constants';
 import { getCustomerTier } from '../../utils/customerTier';
 
 type TierFilter = 'ALL' | 'VIP' | 'Regular' | 'New';
+type ViewMode = 'ALL' | 'CREDIT';
 
 export default function CustomersScreen() {
   const navigation = useNavigation<any>();
+  const [viewMode, setViewMode] = useState<ViewMode>('ALL');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<TierFilter>('ALL');
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [creditBalances, setCreditBalances] = useState<{ customer_id: string; balance: number }[]>([]);
+  const [creditLoading, setCreditLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -34,13 +39,30 @@ export default function CustomersScreen() {
     }
   }, [search]);
 
-  useEffect(() => { load(); }, [load]);
+  const loadCredit = useCallback(async () => {
+    setCreditLoading(true);
+    try {
+      const data = await creditService.getCustomersWithBalance();
+      setCreditBalances(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCreditLoading(false);
+    }
+  }, []);
+
+  useFocusEffect(useCallback(() => { load(); loadCredit(); }, [load, loadCredit]));
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await load();
+    await Promise.all([load(), loadCredit()]);
     setRefreshing(false);
   };
+
+  const customerById = new Map(customers.map(c => [c.customer_id, c]));
+  const creditList = creditBalances
+    .map(cb => ({ balance: cb.balance, customer: customerById.get(cb.customer_id) }))
+    .filter((x): x is { balance: number; customer: Customer } => !!x.customer);
 
   const filtered = tierFilter === 'ALL'
     ? customers
@@ -67,75 +89,133 @@ export default function CustomersScreen() {
         </TouchableOpacity>
       </View>
 
-      <TextInput
-        style={styles.search}
-        value={search}
-        onChangeText={setSearch}
-        placeholder="Search by name or phone..."
-        placeholderTextColor={COLORS.textMuted}
-      />
-
-      {/* Tier filter chips */}
-      <View style={styles.filterRow}>
-        {(['ALL', 'VIP', 'Regular', 'New'] as TierFilter[]).map(t => (
-          <TouchableOpacity
-            key={t}
-            style={[styles.filterChip, tierFilter === t && styles.filterChipActive]}
-            onPress={() => setTierFilter(t)}
-          >
-            <Text style={[styles.filterChipText, tierFilter === t && styles.filterChipTextActive]}>
-              {t === 'VIP' ? `👑 VIP (${tierCounts.VIP})`
-                : t === 'Regular' ? `⭐ Regular (${tierCounts.Regular})`
-                : t === 'New' ? `🆕 New (${tierCounts.New})`
-                : `All (${customers.length})`}
-            </Text>
-          </TouchableOpacity>
-        ))}
+      {/* View mode tabs */}
+      <View style={styles.modeRow}>
+        <TouchableOpacity
+          style={[styles.modeTab, viewMode === 'ALL' && styles.modeTabActive]}
+          onPress={() => setViewMode('ALL')}
+        >
+          <Text style={[styles.modeTabText, viewMode === 'ALL' && styles.modeTabTextActive]}>
+            👥 Customers
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.modeTab, viewMode === 'CREDIT' && styles.modeTabActive]}
+          onPress={() => setViewMode('CREDIT')}
+        >
+          <Text style={[styles.modeTabText, viewMode === 'CREDIT' && styles.modeTabTextActive]}>
+            🧾 외상 있음{creditList.length > 0 ? ` (${creditList.length})` : ''}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {loading && <ActivityIndicator color={COLORS.primary} style={{ margin: 16 }} />}
+      {viewMode === 'ALL' ? (
+        <>
+          <TextInput
+            style={styles.search}
+            value={search}
+            onChangeText={setSearch}
+            placeholder="Search by name or phone..."
+            placeholderTextColor={COLORS.textMuted}
+          />
 
-      <FlatList
-        data={filtered}
-        keyExtractor={item => String(item.customer_id)}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
-        contentContainerStyle={styles.list}
-        renderItem={({ item }) => {
-          const tier = getCustomerTier(item.total_orders ?? 0, item.total_spend ?? 0);
-          return (
-            <TouchableOpacity
-              style={styles.card}
-              onPress={() => navigation.navigate('CustomerDetail', { customer: item })}
-            >
-              <View style={[styles.avatar, { backgroundColor: tier.bgColor }]}>
-                <Text style={styles.avatarText}>{item.customer_name[0]?.toUpperCase()}</Text>
-              </View>
-              <View style={styles.info}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.name}>{item.customer_name}</Text>
-                  <View style={[styles.tierBadge, { backgroundColor: tier.bgColor }]}>
-                    <Text style={[styles.tierBadgeText, { color: tier.color }]}>
-                      {tier.emoji} {tier.label}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={styles.phone}>{item.phone_number}</Text>
-                <Text style={styles.address} numberOfLines={1}>{item.address}</Text>
-                {(item.total_orders ?? 0) > 0 && (
-                  <Text style={styles.stats}>
-                    {item.total_orders} orders · ₱{Number(item.total_spend ?? 0).toLocaleString()}
-                  </Text>
-                )}
-              </View>
-            </TouchableOpacity>
-          );
-        }}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyText}>{search ? 'No results found' : 'No customers registered'}</Text>
+          {/* Tier filter chips */}
+          <View style={styles.filterRow}>
+            {(['ALL', 'VIP', 'Regular', 'New'] as TierFilter[]).map(t => (
+              <TouchableOpacity
+                key={t}
+                style={[styles.filterChip, tierFilter === t && styles.filterChipActive]}
+                onPress={() => setTierFilter(t)}
+              >
+                <Text style={[styles.filterChipText, tierFilter === t && styles.filterChipTextActive]}>
+                  {t === 'VIP' ? `👑 VIP (${tierCounts.VIP})`
+                    : t === 'Regular' ? `⭐ Regular (${tierCounts.Regular})`
+                    : t === 'New' ? `🆕 New (${tierCounts.New})`
+                    : `All (${customers.length})`}
+                </Text>
+              </TouchableOpacity>
+            ))}
           </View>
-        }
-      />
+
+          {loading && <ActivityIndicator color={COLORS.primary} style={{ margin: 16 }} />}
+
+          <FlatList
+            data={filtered}
+            keyExtractor={item => String(item.customer_id)}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+            contentContainerStyle={styles.list}
+            renderItem={({ item }) => {
+              const tier = getCustomerTier(item.total_orders ?? 0, item.total_spend ?? 0);
+              return (
+                <TouchableOpacity
+                  style={styles.card}
+                  onPress={() => navigation.navigate('CustomerDetail', { customer: item })}
+                >
+                  <View style={[styles.avatar, { backgroundColor: tier.bgColor }]}>
+                    <Text style={styles.avatarText}>{item.customer_name[0]?.toUpperCase()}</Text>
+                  </View>
+                  <View style={styles.info}>
+                    <View style={styles.nameRow}>
+                      <Text style={styles.name}>{item.customer_name}</Text>
+                      <View style={[styles.tierBadge, { backgroundColor: tier.bgColor }]}>
+                        <Text style={[styles.tierBadgeText, { color: tier.color }]}>
+                          {tier.emoji} {tier.label}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.phone}>{item.phone_number}</Text>
+                    <Text style={styles.address} numberOfLines={1}>{item.address}</Text>
+                    {(item.total_orders ?? 0) > 0 && (
+                      <Text style={styles.stats}>
+                        {item.total_orders} orders · ₱{Number(item.total_spend ?? 0).toLocaleString()}
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            }}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text style={styles.emptyText}>{search ? 'No results found' : 'No customers registered'}</Text>
+              </View>
+            }
+          />
+        </>
+      ) : (
+        <>
+          {creditLoading && <ActivityIndicator color={COLORS.primary} style={{ margin: 16 }} />}
+          <FlatList
+            data={creditList}
+            keyExtractor={item => String(item.customer.customer_id)}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
+            contentContainerStyle={styles.list}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.card}
+                onPress={() => navigation.navigate('CustomerDetail', { customer: item.customer })}
+              >
+                <View style={[styles.avatar, { backgroundColor: '#FCEBEB' }]}>
+                  <Text style={[styles.avatarText, { color: COLORS.danger }]}>
+                    {item.customer.customer_name[0]?.toUpperCase()}
+                  </Text>
+                </View>
+                <View style={styles.info}>
+                  <Text style={styles.name}>{item.customer.customer_name}</Text>
+                  <Text style={styles.phone}>{item.customer.phone_number}</Text>
+                </View>
+                <View style={styles.creditBadge}>
+                  <Text style={styles.creditBadgeText}>₱{item.balance.toLocaleString()}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text style={styles.emptyText}>외상 잔액이 있는 고객이 없습니다.</Text>
+              </View>
+            }
+          />
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -185,4 +265,14 @@ const styles = StyleSheet.create({
   badgeSub: { fontSize: 10, color: '#EF9999' },
   empty: { alignItems: 'center', padding: 40 },
   emptyText: { fontSize: 14, color: COLORS.textMuted },
+  modeRow: { flexDirection: 'row', paddingHorizontal: 16, gap: 8, marginBottom: 8 },
+  modeTab: {
+    flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: 10,
+    paddingVertical: 10, alignItems: 'center', backgroundColor: COLORS.surface,
+  },
+  modeTabActive: { borderColor: COLORS.primary, backgroundColor: '#E1F5EE' },
+  modeTabText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+  modeTabTextActive: { color: COLORS.primary, fontWeight: '700' },
+  creditBadge: { backgroundColor: '#FCEBEB', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+  creditBadgeText: { fontSize: 14, fontWeight: '700', color: COLORS.danger },
 });
