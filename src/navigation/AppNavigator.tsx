@@ -22,6 +22,7 @@ import AddCustomerScreen from '../screens/Customers/AddCustomerScreen';
 import SettingsScreen from '../screens/Settings/SettingsScreen';
 import InventoryScreen from '../screens/Inventory/InventoryScreen';
 import RidersScreen from '../screens/Riders/RidersScreen';
+import ContainerSummaryScreen from '../screens/Containers/ContainerSummaryScreen';
 import LoginScreen from '../screens/Auth/LoginScreen';
 import PinLockScreen from '../screens/Auth/PinLockScreen';
 
@@ -58,6 +59,7 @@ function SettingsStackScreen({ onLogout }: { onLogout: () => void }) {
       </SettingsStack.Screen>
       <SettingsStack.Screen name="Inventory" component={InventoryScreen} />
       <SettingsStack.Screen name="Riders" component={RidersScreen} />
+      <SettingsStack.Screen name="ContainerSummary" component={ContainerSummaryScreen} />
     </SettingsStack.Navigator>
   );
 }

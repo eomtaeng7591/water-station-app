@@ -515,7 +515,7 @@ export default function OrderScreen() {
                 style={styles.collapsibleHeader}
                 onPress={() => setContainerSectionOpen(o => !o)}
               >
-                <Text style={styles.label}>🪣 용기 기록 (선택)</Text>
+                <Text style={styles.label}>🪣 Container Log (Optional)</Text>
                 <Text style={styles.collapsibleArrow}>{containerSectionOpen ? '▲' : '▼'}</Text>
               </TouchableOpacity>
 
@@ -523,14 +523,14 @@ export default function OrderScreen() {
                 <View style={styles.containerFormBox}>
                   {!selectedCustomer && (
                     <Text style={styles.containerHint}>
-                      고객 미선택 — 구매(Purchase)만 기록할 수 있습니다.
+                      No customer selected — only Purchase can be recorded.
                     </Text>
                   )}
                   <View style={styles.containerFormHeaderRow}>
                     <Text style={[styles.containerFieldLabel, { flex: 1 }]} />
-                    {selectedCustomer && <Text style={styles.containerFieldLabel}>대여</Text>}
-                    {selectedCustomer && <Text style={styles.containerFieldLabel}>반납</Text>}
-                    <Text style={styles.containerFieldLabel}>구매</Text>
+                    {selectedCustomer && <Text style={styles.containerFieldLabel}>Borrow</Text>}
+                    {selectedCustomer && <Text style={styles.containerFieldLabel}>Return</Text>}
+                    <Text style={styles.containerFieldLabel}>Purchase</Text>
                   </View>
                   {containerTypes.map(ct => (
                     <View key={ct.container_type_id} style={styles.containerFormRow}>
@@ -842,7 +842,7 @@ export default function OrderScreen() {
                           style={styles.quickAddOpenBtn}
                           onPress={() => { setQuickAddOpen(true); setQuickAddName(searchQuery); }}
                         >
-                          <Text style={styles.quickAddOpenBtnText}>+ 새 고객으로 등록</Text>
+                          <Text style={styles.quickAddOpenBtnText}>+ Add New Customer</Text>
                         </TouchableOpacity>
                       )}
                     </View>

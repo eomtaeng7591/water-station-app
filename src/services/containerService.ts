@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import { getCurrentStoreId } from './storeContext';
-import { ContainerType, ContainerTxnInput, CustomerContainerBalance } from '../types';
+import { ContainerType, ContainerTxnInput, CustomerContainerBalance, StoreContainerSummary } from '../types';
 
 function mapContainerType(row: any): ContainerType {
   return {
@@ -96,5 +96,20 @@ export const containerService = {
         outstanding_qty: Number(r.outstanding_qty),
       }))
       .filter(r => r.outstanding_qty > 0);
+  },
+  async getStoreSummary(): Promise<StoreContainerSummary[]> {
+    const { data, error } = await supabase
+      .from('store_container_summary')
+      .select('*')
+      .order('label');
+    if (error) throw new Error(error.message);
+    return (data ?? []).map(r => ({
+      container_type_id: r.container_type_id,
+      label: r.label,
+      owned_qty: Number(r.owned_qty),
+      out_with_customers: Number(r.out_with_customers),
+      sold_permanently: Number(r.sold_permanently),
+      available_in_shop: Number(r.available_in_shop),
+    }));
   },
 };

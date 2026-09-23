@@ -81,6 +81,15 @@ export interface CustomerContainerBalance {
   outstanding_qty: number;
 }
 
+export interface StoreContainerSummary {
+  container_type_id: string;
+  label: string;
+  owned_qty: number;
+  out_with_customers: number;
+  sold_permanently: number;
+  available_in_shop: number;
+}
+
 export interface CreditBalance {
   customer_id: string;
   credit_charged: number;

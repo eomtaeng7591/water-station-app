@@ -104,7 +104,7 @@ export default function CustomersScreen() {
           onPress={() => setViewMode('CREDIT')}
         >
           <Text style={[styles.modeTabText, viewMode === 'CREDIT' && styles.modeTabTextActive]}>
-            🧾 외상 있음{creditList.length > 0 ? ` (${creditList.length})` : ''}
+            🧾 Credit Owed{creditList.length > 0 ? ` (${creditList.length})` : ''}
           </Text>
         </TouchableOpacity>
       </View>
@@ -210,7 +210,7 @@ export default function CustomersScreen() {
             )}
             ListEmptyComponent={
               <View style={styles.empty}>
-                <Text style={styles.emptyText}>외상 잔액이 있는 고객이 없습니다.</Text>
+                <Text style={styles.emptyText}>No customers with an outstanding credit balance.</Text>
               </View>
             }
           />

@@ -14,6 +14,8 @@ import { ContainerType } from '../../types';
 import NotificationSettings from './NotificationSettings';
 import PinLockScreen from '../Auth/PinLockScreen';
 
+const CONTAINER_SIZE_PRESETS = ['5L', '6L', '7L', '10L'];
+
 export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) {
   const navigation = useNavigation<any>();
   const [deliveryPrice, setDeliveryPrice] = useState('45');
@@ -34,9 +36,8 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
   const [containersLoading, setContainersLoading] = useState(true);
   const [qtyDrafts, setQtyDrafts] = useState<Record<string, string>>({});
   const [qtySavingId, setQtySavingId] = useState<string | null>(null);
-  const [addingContainer, setAddingContainer] = useState(false);
-  const [newLabel, setNewLabel] = useState('');
-  const [newQty, setNewQty] = useState('');
+  const [otherOpen, setOtherOpen] = useState(false);
+  const [otherLabel, setOtherLabel] = useState('');
   const [addContainerLoading, setAddContainerLoading] = useState(false);
 
   const loadContainers = () => {
@@ -58,19 +59,21 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
     loadContainers();
   }, []);
 
-  const handleAddContainer = async () => {
-    const label = newLabel.trim();
-    const qty = parseInt(newQty, 10);
-    if (!label || isNaN(qty) || qty < 0) {
-      Alert.alert('Error', 'Please enter a valid label and quantity.');
+  const handleAddContainer = async (label: string) => {
+    const trimmed = label.trim();
+    if (!trimmed) {
+      Alert.alert('Error', 'Please enter a size label.');
+      return;
+    }
+    if (containers.some(c => c.label.toLowerCase() === trimmed.toLowerCase())) {
+      Alert.alert('Error', `"${trimmed}" already exists.`);
       return;
     }
     setAddContainerLoading(true);
     try {
-      await containerService.addContainerType(label, qty);
-      setNewLabel('');
-      setNewQty('');
-      setAddingContainer(false);
+      await containerService.addContainerType(trimmed, 0);
+      setOtherOpen(false);
+      setOtherLabel('');
       loadContainers();
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to add container size.');
@@ -210,6 +213,14 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
           <Text style={[styles.navCardArrow, { color: '#B45309' }]}>›</Text>
         </TouchableOpacity>
 
+        <TouchableOpacity style={styles.navCard} onPress={() => navigation.navigate('ContainerSummary')}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.navCardTitle}>🪣 Container Inventory</Text>
+            <Text style={styles.navCardSub}>Store-wide stock by size</Text>
+          </View>
+          <Text style={styles.navCardArrow}>›</Text>
+        </TouchableOpacity>
+
         {/* Unit Price */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Unit Price (PHP / Gallon)</Text>
@@ -251,19 +262,19 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
 
         {/* Container Management */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🧴 용기 관리</Text>
-          <Text style={styles.sectionNote}>매장이 보유한 용기 사이즈와 수량을 관리하세요.</Text>
+          <Text style={styles.sectionTitle}>🧴 Container Management</Text>
+          <Text style={styles.sectionNote}>Manage the container sizes and quantities your store owns.</Text>
 
           {containersLoading ? (
             <ActivityIndicator color={COLORS.primary} style={{ marginBottom: 12 }} />
           ) : containers.length === 0 ? (
-            <Text style={styles.emptyText}>등록된 용기 사이즈가 없습니다.</Text>
+            <Text style={styles.emptyText}>No container sizes registered yet.</Text>
           ) : (
             containers.map(ct => (
               <View key={ct.container_type_id} style={[styles.containerRow, !ct.is_active && styles.containerRowInactive]}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.containerLabel}>{ct.label}</Text>
-                  {!ct.is_active && <Text style={styles.containerInactiveText}>비활성</Text>}
+                  {!ct.is_active && <Text style={styles.containerInactiveText}>Inactive</Text>}
                 </View>
                 <TextInput
                   style={styles.containerQtyInput}
@@ -279,53 +290,71 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
                 >
                   {qtySavingId === ct.container_type_id
                     ? <ActivityIndicator color={COLORS.primary} size="small" />
-                    : <Text style={styles.containerSaveBtnText}>저장</Text>
+                    : <Text style={styles.containerSaveBtnText}>Save</Text>
                   }
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.containerToggleBtn} onPress={() => handleToggleContainerActive(ct)}>
                   <Text style={[styles.containerToggleBtnText, { color: ct.is_active ? COLORS.danger : COLORS.primary }]}>
-                    {ct.is_active ? '비활성화' : '활성화'}
+                    {ct.is_active ? 'Deactivate' : 'Activate'}
                   </Text>
                 </TouchableOpacity>
               </View>
             ))
           )}
 
-          {addingContainer ? (
+          <Text style={styles.presetLabel}>Add Size</Text>
+          <View style={styles.presetChipRow}>
+            {CONTAINER_SIZE_PRESETS.map(size => {
+              const exists = containers.some(c => c.label.toLowerCase() === size.toLowerCase());
+              return (
+                <TouchableOpacity
+                  key={size}
+                  style={[styles.presetChip, exists && styles.presetChipDisabled]}
+                  onPress={() => handleAddContainer(size)}
+                  disabled={exists || addContainerLoading}
+                >
+                  <Text style={[styles.presetChipText, exists && styles.presetChipTextDisabled]}>
+                    {exists ? `✓ ${size}` : size}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity
+              style={[styles.presetChip, otherOpen && styles.presetChipActive]}
+              onPress={() => setOtherOpen(o => !o)}
+              disabled={addContainerLoading}
+            >
+              <Text style={[styles.presetChipText, otherOpen && styles.presetChipTextActive]}>Other</Text>
+            </TouchableOpacity>
+          </View>
+
+          {otherOpen && (
             <View style={styles.containerAddRow}>
               <TextInput
                 style={[styles.containerAddInput, { flex: 1 }]}
-                value={newLabel}
-                onChangeText={setNewLabel}
-                placeholder="예: 5L"
+                value={otherLabel}
+                onChangeText={setOtherLabel}
+                placeholder="e.g. 3L"
                 placeholderTextColor={COLORS.textMuted}
                 autoFocus
               />
-              <TextInput
-                style={[styles.containerAddInput, { width: 70 }]}
-                value={newQty}
-                onChangeText={setNewQty}
-                placeholder="수량"
-                placeholderTextColor={COLORS.textMuted}
-                keyboardType="number-pad"
-              />
-              <TouchableOpacity style={styles.containerSaveBtn} onPress={handleAddContainer} disabled={addContainerLoading}>
+              <TouchableOpacity
+                style={styles.containerSaveBtn}
+                onPress={() => handleAddContainer(otherLabel)}
+                disabled={addContainerLoading}
+              >
                 {addContainerLoading
                   ? <ActivityIndicator color={COLORS.primary} size="small" />
-                  : <Text style={styles.containerSaveBtnText}>추가</Text>
+                  : <Text style={styles.containerSaveBtnText}>Add</Text>
                 }
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.containerToggleBtn}
-                onPress={() => { setAddingContainer(false); setNewLabel(''); setNewQty(''); }}
+                onPress={() => { setOtherOpen(false); setOtherLabel(''); }}
               >
-                <Text style={styles.containerToggleBtnText}>취소</Text>
+                <Text style={styles.containerToggleBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
-          ) : (
-            <TouchableOpacity style={styles.saveBtn} onPress={() => setAddingContainer(true)}>
-              <Text style={styles.saveBtnText}>+ 사이즈 추가</Text>
-            </TouchableOpacity>
           )}
         </View>
 
@@ -513,4 +542,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8, paddingHorizontal: 10, fontSize: 14, color: COLORS.textPrimary,
     backgroundColor: COLORS.background,
   },
+  presetLabel: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary, marginTop: 14, marginBottom: 8 },
+  presetChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  presetChip: {
+    borderWidth: 1, borderColor: COLORS.primary, borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 8, backgroundColor: COLORS.background,
+  },
+  presetChipActive: { backgroundColor: '#E1F5EE' },
+  presetChipDisabled: { borderColor: COLORS.border, backgroundColor: COLORS.background },
+  presetChipText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
+  presetChipTextActive: { color: COLORS.primaryDark },
+  presetChipTextDisabled: { color: COLORS.textMuted },
 });
