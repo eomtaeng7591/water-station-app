@@ -22,11 +22,39 @@ aquashop 쪽 마이그레이션 파일을 확인할 것 (테이블: `stores`, `u
 옮겨졌는지 먼저 확인할 것(서비스 파일 상단 `import`에 `supabase`가 있으면 이관 완료,
 `apiClient`의 `api`를 쓰면 아직 레거시 Express 경로).
 
-**Credits/외상(AR) 기능은 완전히 제거되었다** (aquashop이 `003_remove_ar_feature.sql`에서
-먼저 제거한 것을 따라감). `creditService.ts`, `Credits` 탭/화면 전부 삭제됨 — 되살리지 말 것.
+**Credits/외상(AR) 기능은 한 차례 완전히 제거됐었으나(aquashop `003_remove_ar_feature.sql`),
+2026-09-23 aquashop 마이그레이션 `011_credit_and_containers.sql`로 DB 레벨에서 다시
+도입되었다 — `creditService.ts`/`Credits` 탭을 되살리지 말라는 과거 지시는 더 이상
+유효하지 않다.** 같은 마이그레이션에서 신규 기능인 "용기(갈론통) 대여/구매/반납 추적"도
+함께 도입됨. 앱 쪽 구현은 단계적으로 진행 중 — 자세한 내용과 현재 진행 상황은 아래
+"Credit/용기 기능 로드맵" 섹션 참고.
 
 작업 방향이 이 선언과 어긋나 보이면(예: "다시 Express로", "Supabase 쓰지 마" 같은 요청),
 바로 진행하지 말고 이 섹션 기준으로 먼저 재확인할 것.
+
+## Credit/용기 기능 로드맵 (2026-09-23~)
+
+DB 스키마는 aquashop `011_credit_and_containers.sql`로 이미 적용 완료:
+- `payment_method` enum에 `'credit'` 추가
+- `credit_payments` — 고객별 외상 수금(입금) 내역, `store_id`/`customer_id` 스코핑
+- `customer_credit_balances` (뷰) — 고객별 외상 잔액 (charged - paid)
+- `container_types` — 매장별 용기 사이즈 마스터 (`label`, `owned_qty`, `is_active`)
+- `container_transactions` — 용기 이동 내역 (`borrow`/`purchase`/`return`)
+- `customer_container_balances` (뷰) — 고객별 미회수 용기 현황
+- `store_container_summary` (뷰) — 매장 전체 용기 재고 요약 (보유/대여중/판매/매장보유)
+
+앱 쪽 구현 단계:
+- **Phase 1 (완료)** — Settings 화면에 용기 사이즈 관리 UI (`containerService.ts` +
+  `SettingsScreen.tsx` "🧴 용기 관리" 섹션). 사이즈 목록/보유수량 조회·수정, 추가,
+  비활성화(삭제 아님 — 과거 거래 보존).
+- **Phase 2 (예정)** — Orders 화면에 외상(Credit) 결제 수단 추가 + 용기 대여/구매/반납
+  기록 UI. `orderService.ts`의 결제 타입에 `CREDIT` 추가, 주문 시 용기 트랜잭션 입력.
+- **Phase 3 (예정)** — Customer 상세 화면(`CustomerDetailScreen.tsx`)에 외상 잔액
+  (`customer_credit_balances`) + 수금 처리 UI, 용기 현황(`customer_container_balances`)
+  표시.
+- **Phase 4 (예정)** — 매장 전체 용기 재고 현황 화면 (`store_container_summary` 기반).
+
+새 Phase를 시작하거나 끝낼 때마다 이 섹션의 상태를 갱신할 것.
 
 ## 작업 방식
 
@@ -112,7 +140,8 @@ MainTabs
 ```
 
 Settings 탭에 재고 부족 건수를 badge로 표시 (30초마다 폴링, Inventory가 아직 Express 경로라 실패할 수 있음).
-Credits 탭은 제거됨 (아래 서비스 레이어 참고).
+Credits 전용 탭/화면은 없음 — Phase 3에서 Customer 상세 화면에 외상 잔액/수금 UI로
+통합될 예정 (별도 탭 아님). 현재는 Settings에 용기 관리 섹션만 존재 (Phase 1, 아래 참고).
 
 ### 서비스 레이어 (`src/services/`)
 
@@ -130,12 +159,15 @@ Credits 탭은 제거됨 (아래 서비스 레이어 참고).
 | `exportService.ts` | CSV 내보내기 |
 | `notificationService.ts` | 로컬 알림 (매일 오후 9시 일간 리포트) |
 | `settingsService.ts` | 단가 및 목표 설정 |
+| `containerService.ts` | 용기(갈론통) 사이즈 관리 — Phase 1 완료분 (`container_types` CRUD) |
 
 ### 공유 타입 & 상수
 
-- `src/types/index.ts` — 모든 TypeScript 인터페이스 및 유니온 타입 (`Order`, `Customer`, `Credit`, `Rider` 등)
+- `src/types/index.ts` — 모든 TypeScript 인터페이스 및 유니온 타입 (`Order`, `Customer`, `Rider`,
+  `ContainerType` 등)
 - `src/constants/index.ts` — `COLORS`, `ORDER_TYPES`, `PAYMENT_TYPES`, `DELIVERY_STATUS`
-- 결제 타입: `CASH | GCASH | MAYA` (CREDIT은 제거됨)
+- 결제 타입: 현재 앱 TS 유니온은 `CASH | GCASH | MAYA` — DB `payment_method` enum엔
+  `credit`이 이미 추가되어 있지만 앱 쪽 `PaymentType`/주문 폼 반영은 Phase 2에서 진행
 
 ### DB 스키마 (실제 사용: aquashop 소유 Supabase)
 
@@ -149,10 +181,19 @@ Credits 탭은 제거됨 (아래 서비스 레이어 참고).
 - `orders` — 주문 (`store_id`, `customer_id` nullable, `order_type`: walk_in/delivery,
   `status`: pending/delivering/completed/cancelled, `gallon_qty`, `total_amount`, `rider_id`).
   `unit_price`/`receipt_no` 컬럼이 없어 앱에서 파생값으로 계산함 (`orderService.ts` 참고)
-- `payments` — 결제 (주문 1건당 1행으로 사용 중. `method`: cash/gcash/maya)
+- `payments` — 결제 (주문 1건당 1행으로 사용 중. `method`: cash/gcash/maya/credit —
+  `credit`은 011 마이그레이션에서 추가, 앱 반영은 Phase 2)
 - `riders` — 배달 라이더 (`store_id` 스코핑)
 - `system_settings` — 매장별 단가/목표 (`store_id`가 PK, 매장마다 한 행)
+- `credit_payments` — 고객별 외상 수금(입금) 내역 (`store_id`/`customer_id` 스코핑).
+  `payment_method` enum에 `credit` 값 추가됨. 뷰 `customer_credit_balances`로 고객별
+  잔액 조회 (charged - paid) — Phase 3에서 앱에 노출 예정
+- `container_types` — 매장별 용기 사이즈 마스터 (`label`, `owned_qty`, `is_active`,
+  `store_id` UNIQUE 조합) — Phase 1에서 `containerService.ts`로 이미 연동됨
+- `container_transactions` — 용기 이동 내역 (`borrow`/`purchase`/`return`,
+  `container_type_id`/`customer_id`/`order_id` 참조) — Phase 2에서 연동 예정
+- `customer_container_balances`/`store_container_summary` (뷰) — 고객별/매장 전체
+  용기 현황 — Phase 3/4에서 앱에 노출 예정
 - RLS로 매장 간 데이터 격리 — `auth_user_store_id()` 헬퍼 함수 기반. 조회는 RLS가
   자동으로 스코핑하지만, INSERT는 클라이언트가 `store_id`를 직접 채워야 `WITH CHECK`를
   통과함 (`storeContext.ts`의 `getCurrentStoreId()` 사용)
-- `credits`/외상 관련 테이블 없음 — 완전히 제거된 기능

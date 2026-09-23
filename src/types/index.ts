@@ -28,7 +28,7 @@ export interface TargetProgress {
 }
 
 export type OrderType = 'WALK-IN' | 'DELIVERY';
-export type PaymentType = 'CASH' | 'GCASH' | 'MAYA';
+export type PaymentType = 'CASH' | 'GCASH' | 'MAYA' | 'CREDIT';
 export type DeliveryStatus = 'PENDING' | 'COMPLETED';
 
 export interface Order {
@@ -55,6 +55,35 @@ export interface Rider {
   phone_number: string | null;
   is_active: boolean;
   created_at: string;
+}
+
+export interface ContainerType {
+  container_type_id: string;
+  label: string;
+  owned_qty: number;
+  sort_order: number;
+  is_active: boolean;
+}
+
+export type ContainerTxnType = 'borrow' | 'purchase' | 'return';
+
+export interface ContainerTxnInput {
+  container_type_id: string;
+  txn_type: ContainerTxnType;
+  quantity: number;
+}
+
+export interface CustomerContainerBalance {
+  container_type_id: string;
+  label: string;
+  outstanding_qty: number;
+}
+
+export interface CreditBalance {
+  customer_id: string;
+  credit_charged: number;
+  credit_paid: number;
+  balance: number;
 }
 
 export interface OrderInput {

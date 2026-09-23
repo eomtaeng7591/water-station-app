@@ -8,7 +8,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { settingsService } from '../../services/settingsService';
 import { pinService } from '../../services/pinService';
+import { containerService } from '../../services/containerService';
 import { COLORS } from '../../constants';
+import { ContainerType } from '../../types';
 import NotificationSettings from './NotificationSettings';
 import PinLockScreen from '../Auth/PinLockScreen';
 
@@ -28,6 +30,23 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
   const [pinModal, setPinModal] = useState<'set' | 'confirm' | 'verify-old' | 'verify-disable' | null>(null);
   const [pendingPin, setPendingPin] = useState('');
 
+  const [containers, setContainers] = useState<ContainerType[]>([]);
+  const [containersLoading, setContainersLoading] = useState(true);
+  const [qtyDrafts, setQtyDrafts] = useState<Record<string, string>>({});
+  const [qtySavingId, setQtySavingId] = useState<string | null>(null);
+  const [addingContainer, setAddingContainer] = useState(false);
+  const [newLabel, setNewLabel] = useState('');
+  const [newQty, setNewQty] = useState('');
+  const [addContainerLoading, setAddContainerLoading] = useState(false);
+
+  const loadContainers = () => {
+    setContainersLoading(true);
+    containerService.getContainerTypes()
+      .then(setContainers)
+      .catch(console.error)
+      .finally(() => setContainersLoading(false));
+  };
+
   useEffect(() => {
     pinService.isEnabled().then(setPinEnabled).catch(() => {});
     settingsService.getSettings().then(s => {
@@ -36,7 +55,67 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
       setDailyTarget(String(s.daily_target ?? 0));
       setMonthlyTarget(String(s.monthly_target ?? 0));
     }).catch(console.error);
+    loadContainers();
   }, []);
+
+  const handleAddContainer = async () => {
+    const label = newLabel.trim();
+    const qty = parseInt(newQty, 10);
+    if (!label || isNaN(qty) || qty < 0) {
+      Alert.alert('Error', 'Please enter a valid label and quantity.');
+      return;
+    }
+    setAddContainerLoading(true);
+    try {
+      await containerService.addContainerType(label, qty);
+      setNewLabel('');
+      setNewQty('');
+      setAddingContainer(false);
+      loadContainers();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to add container size.');
+    } finally {
+      setAddContainerLoading(false);
+    }
+  };
+
+  const handleSaveQty = async (ct: ContainerType) => {
+    const draft = qtyDrafts[ct.container_type_id];
+    if (draft === undefined) return;
+    const qty = parseInt(draft, 10);
+    if (isNaN(qty) || qty < 0) {
+      Alert.alert('Error', 'Please enter a valid quantity.');
+      return;
+    }
+    if (qty === ct.owned_qty) return;
+    setQtySavingId(ct.container_type_id);
+    try {
+      await containerService.updateOwnedQty(ct.container_type_id, qty);
+      loadContainers();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to update quantity.');
+    } finally {
+      setQtySavingId(null);
+    }
+  };
+
+  const handleToggleContainerActive = (ct: ContainerType) => {
+    const label = ct.is_active ? 'Deactivate' : 'Activate';
+    Alert.alert(`${label} "${ct.label}"?`, ct.is_active ? 'Past transactions are kept.' : undefined, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: label,
+        onPress: async () => {
+          try {
+            await containerService.setActive(ct.container_type_id, !ct.is_active);
+            loadContainers();
+          } catch (e: any) {
+            Alert.alert('Error', e.message || 'Failed to update.');
+          }
+        },
+      },
+    ]);
+  };
 
   const handleSavePrices = async () => {
     const dp = parseFloat(deliveryPrice);
@@ -168,6 +247,86 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
               <Text style={styles.saveBtnText}>{saved ? '✅ Saved' : 'Save Prices'}</Text>
             )}
           </TouchableOpacity>
+        </View>
+
+        {/* Container Management */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>🧴 용기 관리</Text>
+          <Text style={styles.sectionNote}>매장이 보유한 용기 사이즈와 수량을 관리하세요.</Text>
+
+          {containersLoading ? (
+            <ActivityIndicator color={COLORS.primary} style={{ marginBottom: 12 }} />
+          ) : containers.length === 0 ? (
+            <Text style={styles.emptyText}>등록된 용기 사이즈가 없습니다.</Text>
+          ) : (
+            containers.map(ct => (
+              <View key={ct.container_type_id} style={[styles.containerRow, !ct.is_active && styles.containerRowInactive]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.containerLabel}>{ct.label}</Text>
+                  {!ct.is_active && <Text style={styles.containerInactiveText}>비활성</Text>}
+                </View>
+                <TextInput
+                  style={styles.containerQtyInput}
+                  value={qtyDrafts[ct.container_type_id] ?? String(ct.owned_qty)}
+                  onChangeText={(v) => setQtyDrafts(d => ({ ...d, [ct.container_type_id]: v }))}
+                  keyboardType="number-pad"
+                  editable={ct.is_active}
+                />
+                <TouchableOpacity
+                  style={styles.containerSaveBtn}
+                  onPress={() => handleSaveQty(ct)}
+                  disabled={!ct.is_active || qtySavingId === ct.container_type_id}
+                >
+                  {qtySavingId === ct.container_type_id
+                    ? <ActivityIndicator color={COLORS.primary} size="small" />
+                    : <Text style={styles.containerSaveBtnText}>저장</Text>
+                  }
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.containerToggleBtn} onPress={() => handleToggleContainerActive(ct)}>
+                  <Text style={[styles.containerToggleBtnText, { color: ct.is_active ? COLORS.danger : COLORS.primary }]}>
+                    {ct.is_active ? '비활성화' : '활성화'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ))
+          )}
+
+          {addingContainer ? (
+            <View style={styles.containerAddRow}>
+              <TextInput
+                style={[styles.containerAddInput, { flex: 1 }]}
+                value={newLabel}
+                onChangeText={setNewLabel}
+                placeholder="예: 5L"
+                placeholderTextColor={COLORS.textMuted}
+                autoFocus
+              />
+              <TextInput
+                style={[styles.containerAddInput, { width: 70 }]}
+                value={newQty}
+                onChangeText={setNewQty}
+                placeholder="수량"
+                placeholderTextColor={COLORS.textMuted}
+                keyboardType="number-pad"
+              />
+              <TouchableOpacity style={styles.containerSaveBtn} onPress={handleAddContainer} disabled={addContainerLoading}>
+                {addContainerLoading
+                  ? <ActivityIndicator color={COLORS.primary} size="small" />
+                  : <Text style={styles.containerSaveBtnText}>추가</Text>
+                }
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.containerToggleBtn}
+                onPress={() => { setAddingContainer(false); setNewLabel(''); setNewQty(''); }}
+              >
+                <Text style={styles.containerToggleBtnText}>취소</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.saveBtn} onPress={() => setAddingContainer(true)}>
+              <Text style={styles.saveBtnText}>+ 사이즈 추가</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* App Lock (PIN) */}
@@ -328,4 +487,30 @@ const styles = StyleSheet.create({
   navCardTitle: { fontSize: 15, fontWeight: '700', color: COLORS.primaryDark },
   navCardSub: { fontSize: 12, color: COLORS.primary, marginTop: 2 },
   navCardArrow: { fontSize: 24, color: COLORS.primary, fontWeight: '700' },
+  containerRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.background,
+  },
+  containerRowInactive: { opacity: 0.5 },
+  containerLabel: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
+  containerInactiveText: { fontSize: 11, color: COLORS.textMuted, marginTop: 1 },
+  containerQtyInput: {
+    width: 60, fontSize: 15, fontWeight: '700', color: COLORS.textPrimary,
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 8,
+    paddingVertical: 6, paddingHorizontal: 8, textAlign: 'center',
+    backgroundColor: COLORS.background,
+  },
+  containerSaveBtn: {
+    borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
+    backgroundColor: '#E1F5EE',
+  },
+  containerSaveBtnText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
+  containerToggleBtn: { paddingHorizontal: 8, paddingVertical: 8 },
+  containerToggleBtnText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
+  containerAddRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
+  containerAddInput: {
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 8,
+    paddingVertical: 8, paddingHorizontal: 10, fontSize: 14, color: COLORS.textPrimary,
+    backgroundColor: COLORS.background,
+  },
 });

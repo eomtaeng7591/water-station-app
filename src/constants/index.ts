@@ -31,6 +31,7 @@ export const PAYMENT_TYPES = {
   CASH: 'CASH',
   GCASH: 'GCASH',
   MAYA: 'MAYA',
+  CREDIT: 'CREDIT',
 } as const;
 
 export const DELIVERY_STATUS = {

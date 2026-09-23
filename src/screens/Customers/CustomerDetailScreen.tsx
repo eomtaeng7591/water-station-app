@@ -1,10 +1,15 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert,
+  Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { customerService } from '../../services/customerService';
 import { orderService } from '../../services/orderService';
-import { Customer, Order } from '../../types';
+import { creditService } from '../../services/creditService';
+import { containerService } from '../../services/containerService';
+import { Customer, Order, CreditBalance, CustomerContainerBalance } from '../../types';
 import { COLORS } from '../../constants';
 import { getCustomerTier } from '../../utils/customerTier';
 
@@ -15,23 +20,54 @@ export default function CustomerDetailScreen() {
 
   const [customer, setCustomer] = useState<Customer>(initialCustomer);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
+  const [containerBalances, setContainerBalances] = useState<CustomerContainerBalance[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState('');
+  const [paymentNotes, setPaymentNotes] = useState('');
+  const [paymentSaving, setPaymentSaving] = useState(false);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [fresh, o] = await Promise.all([
+      const [fresh, o, cb, containers] = await Promise.all([
         customerService.getCustomerById(initialCustomer.customer_id),
         orderService.getOrdersByCustomer(initialCustomer.customer_id),
+        creditService.getCustomerBalance(initialCustomer.customer_id),
+        containerService.getCustomerBalances(initialCustomer.customer_id),
       ]);
       setCustomer(fresh);
       setOrders(o);
+      setCreditBalance(cb);
+      setContainerBalances(containers);
     } finally {
       setLoading(false);
     }
   }, [initialCustomer.customer_id]);
 
   useFocusEffect(useCallback(() => { loadAll(); }, [loadAll]));
+
+  const handleSavePayment = async () => {
+    const amount = parseFloat(paymentAmount);
+    if (isNaN(amount) || amount <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount.');
+      return;
+    }
+    setPaymentSaving(true);
+    try {
+      await creditService.recordPayment(customer.customer_id, amount, paymentNotes.trim() || undefined);
+      setPaymentModalOpen(false);
+      setPaymentAmount('');
+      setPaymentNotes('');
+      await loadAll();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to record payment.');
+    } finally {
+      setPaymentSaving(false);
+    }
+  };
 
   const totalSpend = orders.reduce((s, o) => s + Number(o.total_amount), 0);
   const tier = getCustomerTier(orders.length, totalSpend);
@@ -110,6 +146,33 @@ export default function CustomerDetailScreen() {
           </View>
         </View>
 
+        {creditBalance && creditBalance.balance > 0 && (
+          <View style={styles.outstanding}>
+            <Text style={styles.outstandingLabel}>🧾 Outstanding Credit Balance</Text>
+            <Text style={styles.outstandingValue}>₱{creditBalance.balance.toLocaleString()}</Text>
+            <TouchableOpacity style={styles.collectBtn} onPress={() => setPaymentModalOpen(true)}>
+              <Text style={styles.collectBtnText}>Record Payment</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        {creditBalance && creditBalance.balance <= 0 && creditBalance.credit_charged > 0 && (
+          <View style={styles.creditClearBox}>
+            <Text style={styles.creditClearText}>✅ No outstanding credit balance</Text>
+          </View>
+        )}
+
+        {containerBalances.length > 0 && (
+          <View style={styles.containerBox}>
+            <Text style={styles.sectionTitle}>🪣 Containers with Customer</Text>
+            {containerBalances.map(cb => (
+              <View key={cb.container_type_id} style={styles.containerBalanceRow}>
+                <Text style={styles.containerBalanceLabel}>{cb.label}</Text>
+                <Text style={styles.containerBalanceQty}>{cb.outstanding_qty}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
         <Text style={styles.sectionTitle}>Order History (Last 30)</Text>
         {loading ? null : orders.length === 0 ? (
           <Text style={styles.emptyText}>No order history.</Text>
@@ -130,13 +193,15 @@ export default function CustomerDetailScreen() {
                 <Text style={styles.orderAmount}>₱{Number(o.total_amount).toLocaleString()}</Text>
                 <View style={[styles.payBadge, {
                   backgroundColor: o.payment_type === 'CASH' ? '#EAF3DE'
-                    : o.payment_type === 'GCASH' ? '#EDE9FE' : '#E0F2FE',
+                    : o.payment_type === 'GCASH' ? '#EDE9FE'
+                    : o.payment_type === 'CREDIT' ? '#F7E1E9' : '#E0F2FE',
                 }]}>
                   <Text style={[styles.payBadgeText, {
                     color: o.payment_type === 'CASH' ? COLORS.cash
-                      : o.payment_type === 'GCASH' ? COLORS.ewallet : '#0EA5E9',
+                      : o.payment_type === 'GCASH' ? COLORS.ewallet
+                      : o.payment_type === 'CREDIT' ? COLORS.credit : '#0EA5E9',
                   }]}>
-                    {o.payment_type === 'GCASH' ? 'Gcash' : o.payment_type}
+                    {o.payment_type === 'GCASH' ? 'Gcash' : o.payment_type === 'CREDIT' ? 'Credit' : o.payment_type}
                   </Text>
                 </View>
               </View>
@@ -147,6 +212,57 @@ export default function CustomerDetailScreen() {
           <Text style={styles.deleteBtnText}>🗑️ Delete Customer</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <Modal
+        visible={paymentModalOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPaymentModalOpen(false)}
+      >
+        <KeyboardAvoidingView style={styles.modalContainer} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={() => setPaymentModalOpen(false)} />
+          <View style={styles.paymentSheet}>
+            <Text style={styles.paymentSheetTitle}>Record Payment</Text>
+            {creditBalance && (
+              <Text style={styles.paymentSheetSub}>
+                Current balance: ₱{creditBalance.balance.toLocaleString()}
+              </Text>
+            )}
+
+            <Text style={styles.inputLabel}>Amount</Text>
+            <TextInput
+              style={styles.input}
+              value={paymentAmount}
+              onChangeText={setPaymentAmount}
+              keyboardType="decimal-pad"
+              placeholder="0"
+              placeholderTextColor={COLORS.textMuted}
+              autoFocus
+            />
+
+            <Text style={styles.inputLabel}>Notes (optional)</Text>
+            <TextInput
+              style={[styles.input, { height: 64, textAlignVertical: 'top' }]}
+              value={paymentNotes}
+              onChangeText={setPaymentNotes}
+              placeholder="e.g. Paid in cash"
+              placeholderTextColor={COLORS.textMuted}
+              multiline
+            />
+
+            {paymentSaving ? (
+              <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />
+            ) : (
+              <TouchableOpacity style={styles.paymentSaveBtn} onPress={handleSavePayment}>
+                <Text style={styles.paymentSaveBtnText}>Save Payment</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.paymentCancelBtn} onPress={() => setPaymentModalOpen(false)}>
+              <Text style={styles.paymentCancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -204,4 +320,35 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
   deleteBtn: { marginTop: 24, marginBottom: 40, borderWidth: 1.5, borderColor: COLORS.danger, borderRadius: 12, padding: 16, alignItems: 'center' },
   deleteBtnText: { color: COLORS.danger, fontSize: 15, fontWeight: '600' },
+  creditClearBox: {
+    backgroundColor: '#E1F5EE', borderRadius: 12, padding: 14,
+    alignItems: 'center', marginBottom: 16,
+  },
+  creditClearText: { fontSize: 13, color: COLORS.primary, fontWeight: '600' },
+  containerBox: {
+    backgroundColor: COLORS.surface, borderRadius: 12, padding: 14,
+    marginBottom: 16, borderWidth: 1, borderColor: COLORS.border,
+  },
+  containerBalanceRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.background,
+  },
+  containerBalanceLabel: { fontSize: 14, color: COLORS.textPrimary, fontWeight: '600' },
+  containerBalanceQty: { fontSize: 15, color: COLORS.textPrimary, fontWeight: '700' },
+  modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  paymentSheet: {
+    backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 24, paddingBottom: 40,
+  },
+  paymentSheetTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textPrimary, textAlign: 'center' },
+  paymentSheetSub: { fontSize: 13, color: COLORS.textMuted, textAlign: 'center', marginTop: 4, marginBottom: 16 },
+  inputLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6, marginTop: 12 },
+  input: {
+    backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 10, padding: 12, fontSize: 15, color: COLORS.textPrimary,
+  },
+  paymentSaveBtn: { backgroundColor: COLORS.primary, borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 20 },
+  paymentSaveBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  paymentCancelBtn: { alignItems: 'center', paddingVertical: 12 },
+  paymentCancelText: { fontSize: 14, color: COLORS.textMuted },
 });

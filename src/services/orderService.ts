@@ -4,8 +4,8 @@ import { Order, OrderInput, OrderType, PaymentType } from '../types';
 
 const ORDER_TYPE_TO_DB: Record<OrderType, string> = { 'WALK-IN': 'walk_in', 'DELIVERY': 'delivery' };
 const ORDER_TYPE_FROM_DB: Record<string, OrderType> = { walk_in: 'WALK-IN', delivery: 'DELIVERY' };
-const PAYMENT_TO_DB: Record<PaymentType, string> = { CASH: 'cash', GCASH: 'gcash', MAYA: 'maya' };
-const PAYMENT_FROM_DB: Record<string, PaymentType> = { cash: 'CASH', gcash: 'GCASH', maya: 'MAYA' };
+const PAYMENT_TO_DB: Record<PaymentType, string> = { CASH: 'cash', GCASH: 'gcash', MAYA: 'maya', CREDIT: 'credit' };
+const PAYMENT_FROM_DB: Record<string, PaymentType> = { cash: 'CASH', gcash: 'GCASH', maya: 'MAYA', credit: 'CREDIT' };
 
 const ORDER_SELECT = `
   id, customer_id, order_type, status, total_amount, gallon_qty, notes,

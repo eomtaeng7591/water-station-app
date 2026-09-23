@@ -11,14 +11,17 @@ import { settingsService } from '../../services/settingsService';
 import { customerService } from '../../services/customerService';
 import { orderService } from '../../services/orderService';
 import { riderService } from '../../services/riderService';
+import { containerService } from '../../services/containerService';
 import { useOfflineSync } from '../../hooks/useOfflineSync';
 import { useOrderSubmit } from '../../hooks/useOrderSubmit';
-import { Customer, Order, Rider, OrderType, PaymentType } from '../../types';
+import { Customer, Order, Rider, OrderType, PaymentType, ContainerType, ContainerTxnInput } from '../../types';
 import { shareOrderReceipt } from '../../services/receiptService';
 
 type ActiveView = 'form' | 'today';
 type FilterType = 'ALL' | 'WALK-IN' | 'DELIVERY';
-type FilterPayment = 'ALL' | 'CASH' | 'GCASH' | 'MAYA';
+type FilterPayment = 'ALL' | 'CASH' | 'GCASH' | 'MAYA' | 'CREDIT';
+type ContainerField = 'borrow' | 'return' | 'purchase';
+type ContainerDraft = Record<ContainerField, string>;
 
 function dateStr(d: Date) {
   const y = d.getFullYear();
@@ -51,6 +54,9 @@ export default function OrderScreen() {
   const [searchResults, setSearchResults] = useState<Customer[]>([]);
   const [riders, setRiders] = useState<Rider[]>([]);
   const [selectedRider, setSelectedRider] = useState<Rider | null>(null);
+  const [containerTypes, setContainerTypes] = useState<ContainerType[]>([]);
+  const [containerSectionOpen, setContainerSectionOpen] = useState(false);
+  const [containerDrafts, setContainerDrafts] = useState<Record<string, ContainerDraft>>({});
 
   const [todayOrders, setTodayOrders] = useState<Order[]>([]);
   const [pendingDeliveries, setPendingDeliveries] = useState<Order[]>([]);
@@ -69,6 +75,7 @@ export default function OrderScreen() {
 
   useEffect(() => {
     riderService.getActiveRiders().then(setRiders).catch(() => {});
+    containerService.getActiveContainerTypes().then(setContainerTypes).catch(() => {});
   }, []);
 
   const loadSettings = async () => {
@@ -167,6 +174,43 @@ export default function OrderScreen() {
     setSearchResults([]);
   };
 
+  const getContainerDraft = (containerTypeId: string, field: ContainerField): string =>
+    containerDrafts[containerTypeId]?.[field] ?? '';
+
+  const setContainerDraft = (containerTypeId: string, field: ContainerField, value: string) => {
+    setContainerDrafts(d => {
+      const current = d[containerTypeId] ?? { borrow: '', return: '', purchase: '' };
+      return { ...d, [containerTypeId]: { ...current, [field]: value } };
+    });
+  };
+
+  const buildContainerEntries = (customerId: string | null): ContainerTxnInput[] => {
+    const entries: ContainerTxnInput[] = [];
+    for (const ct of containerTypes) {
+      const draft = containerDrafts[ct.container_type_id];
+      if (!draft) continue;
+      const purchase = parseInt(draft.purchase, 10);
+      if (purchase > 0) {
+        entries.push({ container_type_id: ct.container_type_id, txn_type: 'purchase', quantity: purchase });
+      }
+      if (customerId) {
+        const borrow = parseInt(draft.borrow, 10);
+        const ret = parseInt(draft.return, 10);
+        if (borrow > 0) entries.push({ container_type_id: ct.container_type_id, txn_type: 'borrow', quantity: borrow });
+        if (ret > 0) entries.push({ container_type_id: ct.container_type_id, txn_type: 'return', quantity: ret });
+      }
+    }
+    return entries;
+  };
+
+  const handlePaymentPress = (payment: PaymentType) => {
+    if (payment === 'CREDIT' && !selectedCustomer) {
+      setSearchModal(true);
+      return;
+    }
+    handleSubmit(payment);
+  };
+
   const handleSubmit = async (payment: PaymentType) => {
     if (!quantity || parseInt(quantity) < 1) {
       Alert.alert('Error', 'Please enter quantity.');
@@ -174,8 +218,9 @@ export default function OrderScreen() {
     }
     setLoading(true);
     try {
+      const customerIdAtSubmit = selectedCustomer?.customer_id ?? null;
       const orderInput = {
-        customer_id: selectedCustomer?.customer_id ?? null,
+        customer_id: customerIdAtSubmit,
         order_type: orderType,
         unit_price: unitPrice,
         quantity: parseInt(quantity),
@@ -192,6 +237,16 @@ export default function OrderScreen() {
         Alert.alert('📴 Saved Offline', `₱${totalAmount.toLocaleString()} queued — will sync when online.`);
       } else {
         const createdOrder = result.order;
+
+        const containerEntries = buildContainerEntries(customerIdAtSubmit);
+        if (createdOrder && containerEntries.length > 0) {
+          try {
+            await containerService.recordTransactions(createdOrder.order_id, customerIdAtSubmit, containerEntries);
+          } catch (e: any) {
+            Alert.alert('Container Log Failed', e.message || 'Order was saved, but container transactions failed to record.');
+          }
+        }
+
         Alert.alert(
           '✅ Order Saved',
           `${payment}  ₱${totalAmount.toLocaleString()}`,
@@ -217,6 +272,8 @@ export default function OrderScreen() {
       setSelectedRider(null);
       setPaymentType('CASH');
       setOrderType('WALK-IN');
+      setContainerDrafts({});
+      setContainerSectionOpen(false);
     } catch (e: any) {
       Alert.alert('Error', e.message || 'Failed to save');
     } finally {
@@ -281,6 +338,23 @@ export default function OrderScreen() {
                   <Text style={styles.placeholder}>Search by name or phone...</Text>
                 )}
               </TouchableOpacity>
+            </View>
+          )}
+
+          {orderType === 'WALK-IN' && selectedCustomer && (
+            <View style={styles.section}>
+              <Text style={styles.label}>Customer (for Credit / Container tracking)</Text>
+              <View style={styles.customerPicker}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={styles.customerName}>{selectedCustomer.customer_name}</Text>
+                    <Text style={styles.customerSub}>{selectedCustomer.phone_number}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => setSelectedCustomer(null)}>
+                    <Text style={styles.customerRemove}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
           )}
 
@@ -366,28 +440,96 @@ export default function OrderScreen() {
             />
           </View>
 
+          {containerTypes.length > 0 && (
+            <View style={styles.section}>
+              <TouchableOpacity
+                style={styles.collapsibleHeader}
+                onPress={() => setContainerSectionOpen(o => !o)}
+              >
+                <Text style={styles.label}>🪣 용기 기록 (선택)</Text>
+                <Text style={styles.collapsibleArrow}>{containerSectionOpen ? '▲' : '▼'}</Text>
+              </TouchableOpacity>
+
+              {containerSectionOpen && (
+                <View style={styles.containerFormBox}>
+                  {!selectedCustomer && (
+                    <Text style={styles.containerHint}>
+                      고객 미선택 — 구매(Purchase)만 기록할 수 있습니다.
+                    </Text>
+                  )}
+                  <View style={styles.containerFormHeaderRow}>
+                    <Text style={[styles.containerFieldLabel, { flex: 1 }]} />
+                    {selectedCustomer && <Text style={styles.containerFieldLabel}>대여</Text>}
+                    {selectedCustomer && <Text style={styles.containerFieldLabel}>반납</Text>}
+                    <Text style={styles.containerFieldLabel}>구매</Text>
+                  </View>
+                  {containerTypes.map(ct => (
+                    <View key={ct.container_type_id} style={styles.containerFormRow}>
+                      <Text style={[styles.containerFormLabel, { flex: 1 }]}>{ct.label}</Text>
+                      {selectedCustomer && (
+                        <TextInput
+                          style={styles.containerFieldInput}
+                          value={getContainerDraft(ct.container_type_id, 'borrow')}
+                          onChangeText={(v) => setContainerDraft(ct.container_type_id, 'borrow', v)}
+                          keyboardType="number-pad"
+                          placeholder="0"
+                          placeholderTextColor={COLORS.textMuted}
+                        />
+                      )}
+                      {selectedCustomer && (
+                        <TextInput
+                          style={styles.containerFieldInput}
+                          value={getContainerDraft(ct.container_type_id, 'return')}
+                          onChangeText={(v) => setContainerDraft(ct.container_type_id, 'return', v)}
+                          keyboardType="number-pad"
+                          placeholder="0"
+                          placeholderTextColor={COLORS.textMuted}
+                        />
+                      )}
+                      <TextInput
+                        style={styles.containerFieldInput}
+                        value={getContainerDraft(ct.container_type_id, 'purchase')}
+                        onChangeText={(v) => setContainerDraft(ct.container_type_id, 'purchase', v)}
+                        keyboardType="number-pad"
+                        placeholder="0"
+                        placeholderTextColor={COLORS.textMuted}
+                      />
+                    </View>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
 <Text style={styles.label}>Select Payment Method</Text>
           <View style={styles.paymentRow}>
             <TouchableOpacity
               style={[styles.payBtn, { borderColor: COLORS.cash }]}
-              onPress={() => handleSubmit('CASH')}
+              onPress={() => handlePaymentPress('CASH')}
               disabled={loading}
             >
               <Text style={[styles.payBtnText, { color: COLORS.cash }]}>💵 CASH</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.payBtn, { borderColor: COLORS.ewallet }]}
-              onPress={() => handleSubmit('GCASH')}
+              onPress={() => handlePaymentPress('GCASH')}
               disabled={loading}
             >
               <Text style={[styles.payBtnText, { color: COLORS.ewallet }]}>📱 Gcash</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.payBtn, { borderColor: '#0EA5E9' }]}
-              onPress={() => handleSubmit('MAYA')}
+              onPress={() => handlePaymentPress('MAYA')}
               disabled={loading}
             >
               <Text style={[styles.payBtnText, { color: '#0EA5E9' }]}>💙 Maya</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.payBtn, { borderColor: COLORS.credit }, !selectedCustomer && styles.payBtnInactive]}
+              onPress={() => handlePaymentPress('CREDIT')}
+              disabled={loading}
+            >
+              <Text style={[styles.payBtnText, { color: COLORS.credit }]}>🧾 Credit</Text>
             </TouchableOpacity>
           </View>
 
@@ -433,14 +575,14 @@ export default function OrderScreen() {
                 </Text>
               </TouchableOpacity>
             ))}
-            {(['ALL', 'CASH', 'GCASH', 'MAYA'] as FilterPayment[]).map(p => (
+            {(['ALL', 'CASH', 'GCASH', 'MAYA', 'CREDIT'] as FilterPayment[]).map(p => (
               <TouchableOpacity
                 key={p}
                 style={[styles.filterChip, filterPayment === p && styles.filterChipActive]}
                 onPress={() => setFilterPayment(p)}
               >
                 <Text style={[styles.filterChipText, filterPayment === p && styles.filterChipTextActive]}>
-                  {p === 'ALL' ? 'All Pay' : p === 'GCASH' ? 'GCash' : p === 'MAYA' ? 'Maya' : p}
+                  {p === 'ALL' ? 'All Pay' : p === 'GCASH' ? 'GCash' : p === 'MAYA' ? 'Maya' : p === 'CREDIT' ? 'Credit' : p}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -506,15 +648,18 @@ export default function OrderScreen() {
                     <View style={[styles.payBadge, {
                       backgroundColor: order.payment_type === 'CASH' ? '#EAF3DE'
                         : order.payment_type === 'GCASH' ? '#EDE9FE'
+                        : order.payment_type === 'CREDIT' ? '#F7E1E9'
                         : '#E0F2FE',
                     }]}>
                       <Text style={[styles.payBadgeText, {
                         color: order.payment_type === 'CASH' ? COLORS.cash
                           : order.payment_type === 'GCASH' ? COLORS.ewallet
+                          : order.payment_type === 'CREDIT' ? COLORS.credit
                           : '#0EA5E9',
                       }]}>
                         {order.payment_type === 'GCASH' ? 'GCash'
                           : order.payment_type === 'MAYA' ? 'Maya'
+                          : order.payment_type === 'CREDIT' ? 'Credit'
                           : order.payment_type}
                       </Text>
                     </View>
@@ -662,6 +807,24 @@ const styles = StyleSheet.create({
   payBtnText: { fontSize: 13, fontWeight: '700' },
   payBtnDisabled: { opacity: 0.35 },
   payBtnTextDisabled: { opacity: 0.4 },
+  payBtnInactive: { opacity: 0.4 },
+  customerRemove: { color: COLORS.danger, fontSize: 13, fontWeight: '600' },
+  collapsibleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  collapsibleArrow: { fontSize: 12, color: COLORS.textMuted },
+  containerFormBox: {
+    marginTop: 12, backgroundColor: COLORS.surface, borderWidth: 1,
+    borderColor: COLORS.border, borderRadius: 10, padding: 12,
+  },
+  containerHint: { fontSize: 12, color: COLORS.textMuted, marginBottom: 10 },
+  containerFormHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  containerFormRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  containerFormLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
+  containerFieldLabel: { width: 52, fontSize: 11, color: COLORS.textMuted, textAlign: 'center' },
+  containerFieldInput: {
+    width: 52, fontSize: 14, fontWeight: '600', color: COLORS.textPrimary,
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 8,
+    paddingVertical: 6, textAlign: 'center', backgroundColor: COLORS.background,
+  },
   pendingSection: {
     backgroundColor: '#FFF7ED', borderRadius: 12, padding: 14,
     marginBottom: 16, borderWidth: 1, borderColor: '#FCD34D',
