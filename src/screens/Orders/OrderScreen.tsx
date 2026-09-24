@@ -45,6 +45,7 @@ export default function OrderScreen() {
   const [_paymentType, setPaymentType] = useState<PaymentType>('CASH');
   const [deliveryStatus, setDeliveryStatus] = useState<'PENDING' | 'COMPLETED'>('PENDING');
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [creditFlowActive, setCreditFlowActive] = useState(false);
   const [walkinPrice, setWalkinPrice] = useState(40);
   const [deliveryPrice, setDeliveryPrice] = useState(45);
   const [selectedContainerType, setSelectedContainerType] = useState<ContainerType | null>(null);
@@ -239,11 +240,15 @@ export default function OrderScreen() {
     return entries;
   };
 
+  const creditLocked = creditFlowActive && !!selectedCustomer;
+
   const handlePaymentPress = (payment: PaymentType) => {
     if (payment === 'CREDIT' && !selectedCustomer) {
+      setCreditFlowActive(true);
       setSearchModal(true);
       return;
     }
+    if (creditLocked && payment !== 'CREDIT') return;
     handleSubmit(payment);
   };
 
@@ -306,6 +311,7 @@ export default function OrderScreen() {
       setQuantity('');
       setRemarks('');
       setSelectedCustomer(null);
+      setCreditFlowActive(false);
       setSelectedRider(null);
       setSelectedContainerType(null);
       setPaymentType('CASH');
@@ -351,7 +357,7 @@ export default function OrderScreen() {
               <TouchableOpacity
                 key={t}
                 style={[styles.typeBtn, orderType === t && styles.typeBtnActive]}
-                onPress={() => { setOrderType(t); setSelectedCustomer(null); }}
+                onPress={() => { setOrderType(t); setSelectedCustomer(null); setCreditFlowActive(false); }}
               >
                 <Text style={[styles.typeBtnText, orderType === t && styles.typeBtnTextActive]}>
                   {t === 'WALK-IN' ? '🚶 WALK-IN' : '🏍️ DELIVERY'}
@@ -366,7 +372,7 @@ export default function OrderScreen() {
           {orderType === 'DELIVERY' && (
             <View style={styles.section}>
               <Text style={styles.label}>Select Customer *</Text>
-              <TouchableOpacity style={styles.customerPicker} onPress={() => setSearchModal(true)}>
+              <TouchableOpacity style={styles.customerPicker} onPress={() => { setCreditFlowActive(false); setSearchModal(true); }}>
                 {selectedCustomer ? (
                   <View>
                     <Text style={styles.customerName}>{selectedCustomer.customer_name}</Text>
@@ -388,7 +394,7 @@ export default function OrderScreen() {
                     <Text style={styles.customerName}>{selectedCustomer.customer_name}</Text>
                     <Text style={styles.customerSub}>{selectedCustomer.phone_number}</Text>
                   </View>
-                  <TouchableOpacity onPress={() => setSelectedCustomer(null)}>
+                  <TouchableOpacity onPress={() => { setSelectedCustomer(null); setCreditFlowActive(false); }}>
                     <Text style={styles.customerRemove}>Remove</Text>
                   </TouchableOpacity>
                 </View>
@@ -573,32 +579,37 @@ export default function OrderScreen() {
 <Text style={styles.label}>Select Payment Method</Text>
           <View style={styles.paymentRow}>
             <TouchableOpacity
-              style={[styles.payBtn, { borderColor: COLORS.cash }]}
+              style={[styles.payBtn, { borderColor: COLORS.cash }, creditLocked && styles.payBtnInactive]}
               onPress={() => handlePaymentPress('CASH')}
-              disabled={loading}
+              disabled={loading || creditLocked}
             >
               <Text style={[styles.payBtnText, { color: COLORS.cash }]}>💵 CASH</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.payBtn, { borderColor: COLORS.ewallet }]}
+              style={[styles.payBtn, { borderColor: COLORS.ewallet }, creditLocked && styles.payBtnInactive]}
               onPress={() => handlePaymentPress('GCASH')}
-              disabled={loading}
+              disabled={loading || creditLocked}
             >
               <Text style={[styles.payBtnText, { color: COLORS.ewallet }]}>📱 Gcash</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.payBtn, { borderColor: '#0EA5E9' }]}
+              style={[styles.payBtn, { borderColor: '#0EA5E9' }, creditLocked && styles.payBtnInactive]}
               onPress={() => handlePaymentPress('MAYA')}
-              disabled={loading}
+              disabled={loading || creditLocked}
             >
               <Text style={[styles.payBtnText, { color: '#0EA5E9' }]}>💙 Maya</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.payBtn, { borderColor: COLORS.credit }, !selectedCustomer && styles.payBtnInactive]}
+              style={[
+                styles.payBtn,
+                { borderColor: COLORS.credit },
+                !selectedCustomer && styles.payBtnInactive,
+                creditLocked && styles.payBtnCreditSelected,
+              ]}
               onPress={() => handlePaymentPress('CREDIT')}
               disabled={loading}
             >
-              <Text style={[styles.payBtnText, { color: COLORS.credit }]}>🧾 Credit</Text>
+              <Text style={[styles.payBtnText, { color: creditLocked ? '#fff' : COLORS.credit }]}>🧾 Credit</Text>
             </TouchableOpacity>
           </View>
 
@@ -926,6 +937,7 @@ const styles = StyleSheet.create({
   payBtnDisabled: { opacity: 0.35 },
   payBtnTextDisabled: { opacity: 0.4 },
   payBtnInactive: { opacity: 0.4 },
+  payBtnCreditSelected: { backgroundColor: COLORS.credit },
   customerRemove: { color: COLORS.danger, fontSize: 13, fontWeight: '600' },
   collapsibleHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   collapsibleArrow: { fontSize: 12, color: COLORS.textMuted },
