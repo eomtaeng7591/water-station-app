@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
-import { getCurrentStoreId } from './storeContext';
-import { ContainerType, ContainerTxnInput, CustomerContainerBalance, StoreContainerSummary } from '../types';
+import { getCurrentStoreId, getCurrentUserId } from './storeContext';
+import { ContainerType, ContainerTxnInput, CustomerContainerBalance, StoreContainerSummary, UnpaidContainerFee } from '../types';
 
 function mapContainerType(row: any): ContainerType {
   return {
@@ -44,15 +44,21 @@ export const containerService = {
     if (error) throw new Error(error.message);
     return mapContainerType(data);
   },
-  async updateOwnedQty(containerTypeId: string, ownedQty: number): Promise<ContainerType> {
-    const { data, error } = await supabase
-      .from('container_types')
-      .update({ owned_qty: ownedQty })
-      .eq('id', containerTypeId)
-      .select('*')
-      .single();
+  async applyStockTxn(
+    containerTypeId: string,
+    txnType: 'restock' | 'dispose',
+    quantity: number,
+    notes?: string
+  ): Promise<void> {
+    const userId = await getCurrentUserId();
+    const { error } = await supabase.rpc('fn_apply_container_stock_txn', {
+      p_container_type_id: containerTypeId,
+      p_txn_type: txnType,
+      p_quantity: quantity,
+      p_notes: notes || null,
+      p_created_by: userId,
+    });
     if (error) throw new Error(error.message);
-    return mapContainerType(data);
   },
   async setActive(containerTypeId: string, isActive: boolean): Promise<ContainerType> {
     const { data, error } = await supabase
@@ -79,6 +85,8 @@ export const containerService = {
         container_type_id: e.container_type_id,
         txn_type: e.txn_type,
         quantity: e.quantity,
+        fee_amount: e.fee_amount ?? null,
+        fee_paid: e.fee_paid ?? false,
       }))
     );
     if (error) throw new Error(error.message);
@@ -86,16 +94,44 @@ export const containerService = {
   async getCustomerBalances(customerId: string): Promise<CustomerContainerBalance[]> {
     const { data, error } = await supabase
       .from('customer_container_balances')
-      .select('container_type_id, label, outstanding_qty')
+      .select('container_type_id, label, borrowed_qty, returned_qty, purchased_qty, outstanding_qty')
       .eq('customer_id', customerId);
     if (error) throw new Error(error.message);
-    return (data ?? [])
-      .map(r => ({
-        container_type_id: r.container_type_id,
-        label: r.label,
-        outstanding_qty: Number(r.outstanding_qty),
-      }))
-      .filter(r => r.outstanding_qty > 0);
+    return (data ?? []).map(r => ({
+      container_type_id: r.container_type_id,
+      label: r.label,
+      borrowed_qty: Number(r.borrowed_qty),
+      returned_qty: Number(r.returned_qty),
+      purchased_qty: Number(r.purchased_qty),
+      outstanding_qty: Number(r.outstanding_qty),
+    }));
+  },
+  async getUnpaidFees(customerId: string): Promise<UnpaidContainerFee[]> {
+    const { data, error } = await supabase
+      .from('container_transactions')
+      .select('id, container_type_id, txn_type, quantity, fee_amount, created_at, container_types(label)')
+      .eq('customer_id', customerId)
+      .eq('txn_type', 'borrow')
+      .eq('fee_paid', false)
+      .not('fee_amount', 'is', null)
+      .order('created_at');
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((r: any) => ({
+      transaction_id: r.id,
+      container_type_id: r.container_type_id,
+      label: r.container_types?.label ?? '',
+      txn_type: r.txn_type,
+      quantity: r.quantity,
+      fee_amount: Number(r.fee_amount),
+      created_at: r.created_at,
+    }));
+  },
+  async markFeePaid(transactionId: string): Promise<void> {
+    const { error } = await supabase
+      .from('container_transactions')
+      .update({ fee_paid: true, fee_paid_at: new Date().toISOString() })
+      .eq('id', transactionId);
+    if (error) throw new Error(error.message);
   },
   async getStoreSummary(): Promise<StoreContainerSummary[]> {
     const { data, error } = await supabase

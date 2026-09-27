@@ -9,7 +9,7 @@ import { customerService } from '../../services/customerService';
 import { orderService } from '../../services/orderService';
 import { creditService } from '../../services/creditService';
 import { containerService } from '../../services/containerService';
-import { Customer, Order, CreditBalance, CustomerContainerBalance } from '../../types';
+import { Customer, Order, CreditBalance, CustomerContainerBalance, UnpaidContainerFee } from '../../types';
 import { COLORS } from '../../constants';
 import { getCustomerTier } from '../../utils/customerTier';
 
@@ -22,7 +22,9 @@ export default function CustomerDetailScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [creditBalance, setCreditBalance] = useState<CreditBalance | null>(null);
   const [containerBalances, setContainerBalances] = useState<CustomerContainerBalance[]>([]);
+  const [unpaidFees, setUnpaidFees] = useState<UnpaidContainerFee[]>([]);
   const [loading, setLoading] = useState(true);
+  const [markPaidId, setMarkPaidId] = useState<string | null>(null);
 
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
@@ -32,16 +34,18 @@ export default function CustomerDetailScreen() {
   const loadAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [fresh, o, cb, containers] = await Promise.all([
+      const [fresh, o, cb, containers, fees] = await Promise.all([
         customerService.getCustomerById(initialCustomer.customer_id),
         orderService.getOrdersByCustomer(initialCustomer.customer_id),
         creditService.getCustomerBalance(initialCustomer.customer_id),
         containerService.getCustomerBalances(initialCustomer.customer_id),
+        containerService.getUnpaidFees(initialCustomer.customer_id),
       ]);
       setCustomer(fresh);
       setOrders(o);
       setCreditBalance(cb);
       setContainerBalances(containers);
+      setUnpaidFees(fees);
     } finally {
       setLoading(false);
     }
@@ -69,8 +73,22 @@ export default function CustomerDetailScreen() {
     }
   };
 
+  const handleMarkFeePaid = async (fee: UnpaidContainerFee) => {
+    setMarkPaidId(fee.transaction_id);
+    try {
+      await containerService.markFeePaid(fee.transaction_id);
+      await loadAll();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to update.');
+    } finally {
+      setMarkPaidId(null);
+    }
+  };
+
   const totalSpend = orders.reduce((s, o) => s + Number(o.total_amount), 0);
   const tier = getCustomerTier(orders.length, totalSpend);
+  const borrowedList = containerBalances.filter(cb => cb.outstanding_qty > 0);
+  const returnedList = containerBalances.filter(cb => cb.outstanding_qty <= 0 && cb.returned_qty > 0);
 
   const handleDelete = () => {
     Alert.alert(
@@ -161,15 +179,57 @@ export default function CustomerDetailScreen() {
           </View>
         )}
 
-        {containerBalances.length > 0 && (
+        {(borrowedList.length > 0 || returnedList.length > 0 || unpaidFees.length > 0) && (
           <View style={styles.containerBox}>
-            <Text style={styles.sectionTitle}>🪣 Containers with Customer</Text>
-            {containerBalances.map(cb => (
-              <View key={cb.container_type_id} style={styles.containerBalanceRow}>
-                <Text style={styles.containerBalanceLabel}>{cb.label}</Text>
-                <Text style={styles.containerBalanceQty}>{cb.outstanding_qty}</Text>
-              </View>
-            ))}
+            <Text style={styles.sectionTitle}>🪣 Containers</Text>
+
+            {borrowedList.length > 0 && (
+              <>
+                <Text style={styles.containerSubheading}>Currently Borrowed</Text>
+                {borrowedList.map(cb => (
+                  <View key={cb.container_type_id} style={styles.containerBalanceRow}>
+                    <Text style={styles.containerBalanceLabel}>{cb.label}</Text>
+                    <Text style={styles.containerBalanceQty}>{cb.outstanding_qty}</Text>
+                  </View>
+                ))}
+              </>
+            )}
+
+            {unpaidFees.length > 0 && (
+              <>
+                <Text style={[styles.containerSubheading, { color: COLORS.danger }]}>⚠️ Unpaid Borrow Fees</Text>
+                {unpaidFees.map(fee => (
+                  <View key={fee.transaction_id} style={styles.unpaidFeeRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.unpaidFeeLabel}>{fee.label} × {fee.quantity}</Text>
+                      <Text style={styles.unpaidFeeAmount}>₱{fee.fee_amount.toLocaleString()}</Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.markPaidBtn}
+                      onPress={() => handleMarkFeePaid(fee)}
+                      disabled={markPaidId === fee.transaction_id}
+                    >
+                      {markPaidId === fee.transaction_id
+                        ? <ActivityIndicator color={COLORS.primary} size="small" />
+                        : <Text style={styles.markPaidBtnText}>Mark Paid</Text>
+                      }
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </>
+            )}
+
+            {returnedList.length > 0 && (
+              <>
+                <Text style={styles.containerSubheading}>Returned</Text>
+                {returnedList.map(cb => (
+                  <View key={cb.container_type_id} style={styles.containerBalanceRow}>
+                    <Text style={styles.containerBalanceLabel}>{cb.label}</Text>
+                    <Text style={styles.containerBalanceQtyMuted}>{cb.returned_qty} returned</Text>
+                  </View>
+                ))}
+              </>
+            )}
           </View>
         )}
 
@@ -335,6 +395,19 @@ const styles = StyleSheet.create({
   },
   containerBalanceLabel: { fontSize: 14, color: COLORS.textPrimary, fontWeight: '600' },
   containerBalanceQty: { fontSize: 15, color: COLORS.textPrimary, fontWeight: '700' },
+  containerBalanceQtyMuted: { fontSize: 13, color: COLORS.textMuted },
+  containerSubheading: {
+    fontSize: 12, fontWeight: '700', color: COLORS.textSecondary,
+    marginTop: 10, marginBottom: 4, textTransform: 'uppercase',
+  },
+  unpaidFeeRow: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FCEBEB',
+    borderRadius: 10, padding: 10, marginBottom: 6,
+  },
+  unpaidFeeLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textPrimary },
+  unpaidFeeAmount: { fontSize: 13, color: COLORS.danger, fontWeight: '700', marginTop: 2 },
+  markPaidBtn: { backgroundColor: COLORS.primary, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  markPaidBtnText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
   paymentSheet: {
     backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20,

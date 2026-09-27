@@ -20,8 +20,21 @@ import { shareOrderReceipt } from '../../services/receiptService';
 type ActiveView = 'form' | 'today';
 type FilterType = 'ALL' | 'WALK-IN' | 'DELIVERY';
 type FilterPayment = 'ALL' | 'CASH' | 'GCASH' | 'MAYA' | 'CREDIT';
-type ContainerField = 'borrow' | 'return' | 'purchase';
-type ContainerDraft = Record<ContainerField, string>;
+type ContainerField = 'borrow' | 'return' | 'purchase' | 'borrowFee' | 'purchaseFee';
+interface ContainerDraft {
+  borrow: string;
+  return: string;
+  purchase: string;
+  borrowFee: string;
+  borrowFeePaid: boolean;
+  purchaseFee: string;
+  purchaseFeePaid: boolean;
+}
+const EMPTY_CONTAINER_DRAFT: ContainerDraft = {
+  borrow: '', return: '', purchase: '',
+  borrowFee: '', borrowFeePaid: false,
+  purchaseFee: '', purchaseFeePaid: false,
+};
 
 function dateStr(d: Date) {
   const y = d.getFullYear();
@@ -216,8 +229,16 @@ export default function OrderScreen() {
 
   const setContainerDraft = (containerTypeId: string, field: ContainerField, value: string) => {
     setContainerDrafts(d => {
-      const current = d[containerTypeId] ?? { borrow: '', return: '', purchase: '' };
+      const current = d[containerTypeId] ?? EMPTY_CONTAINER_DRAFT;
       return { ...d, [containerTypeId]: { ...current, [field]: value } };
+    });
+  };
+
+  const toggleFeePaid = (containerTypeId: string, kind: 'borrow' | 'purchase') => {
+    setContainerDrafts(d => {
+      const current = d[containerTypeId] ?? EMPTY_CONTAINER_DRAFT;
+      const key = kind === 'borrow' ? 'borrowFeePaid' : 'purchaseFeePaid';
+      return { ...d, [containerTypeId]: { ...current, [key]: !current[key] } };
     });
   };
 
@@ -228,12 +249,24 @@ export default function OrderScreen() {
       if (!draft) continue;
       const purchase = parseInt(draft.purchase, 10);
       if (purchase > 0) {
-        entries.push({ container_type_id: ct.container_type_id, txn_type: 'purchase', quantity: purchase });
+        const fee = parseFloat(draft.purchaseFee);
+        entries.push({
+          container_type_id: ct.container_type_id, txn_type: 'purchase', quantity: purchase,
+          fee_amount: isNaN(fee) ? null : fee,
+          fee_paid: draft.purchaseFeePaid,
+        });
       }
       if (customerId) {
         const borrow = parseInt(draft.borrow, 10);
         const ret = parseInt(draft.return, 10);
-        if (borrow > 0) entries.push({ container_type_id: ct.container_type_id, txn_type: 'borrow', quantity: borrow });
+        if (borrow > 0) {
+          const fee = parseFloat(draft.borrowFee);
+          entries.push({
+            container_type_id: ct.container_type_id, txn_type: 'borrow', quantity: borrow,
+            fee_amount: isNaN(fee) ? null : fee,
+            fee_paid: draft.borrowFeePaid,
+          });
+        }
         if (ret > 0) entries.push({ container_type_id: ct.container_type_id, txn_type: 'return', quantity: ret });
       }
     }
@@ -538,39 +571,90 @@ export default function OrderScreen() {
                     {selectedCustomer && <Text style={styles.containerFieldLabel}>Return</Text>}
                     <Text style={styles.containerFieldLabel}>Purchase</Text>
                   </View>
-                  {containerTypes.map(ct => (
-                    <View key={ct.container_type_id} style={styles.containerFormRow}>
-                      <Text style={[styles.containerFormLabel, { flex: 1 }]}>{ct.label}</Text>
-                      {selectedCustomer && (
-                        <TextInput
-                          style={styles.containerFieldInput}
-                          value={getContainerDraft(ct.container_type_id, 'borrow')}
-                          onChangeText={(v) => setContainerDraft(ct.container_type_id, 'borrow', v)}
-                          keyboardType="number-pad"
-                          placeholder="0"
-                          placeholderTextColor={COLORS.textMuted}
-                        />
-                      )}
-                      {selectedCustomer && (
-                        <TextInput
-                          style={styles.containerFieldInput}
-                          value={getContainerDraft(ct.container_type_id, 'return')}
-                          onChangeText={(v) => setContainerDraft(ct.container_type_id, 'return', v)}
-                          keyboardType="number-pad"
-                          placeholder="0"
-                          placeholderTextColor={COLORS.textMuted}
-                        />
-                      )}
-                      <TextInput
-                        style={styles.containerFieldInput}
-                        value={getContainerDraft(ct.container_type_id, 'purchase')}
-                        onChangeText={(v) => setContainerDraft(ct.container_type_id, 'purchase', v)}
-                        keyboardType="number-pad"
-                        placeholder="0"
-                        placeholderTextColor={COLORS.textMuted}
-                      />
-                    </View>
-                  ))}
+                  {containerTypes.map(ct => {
+                    const borrowQty = parseInt(getContainerDraft(ct.container_type_id, 'borrow'), 10) || 0;
+                    const purchaseQty = parseInt(getContainerDraft(ct.container_type_id, 'purchase'), 10) || 0;
+                    const draft = containerDrafts[ct.container_type_id];
+                    return (
+                      <View key={ct.container_type_id}>
+                        <View style={styles.containerFormRow}>
+                          <Text style={[styles.containerFormLabel, { flex: 1 }]}>{ct.label}</Text>
+                          {selectedCustomer && (
+                            <TextInput
+                              style={styles.containerFieldInput}
+                              value={getContainerDraft(ct.container_type_id, 'borrow')}
+                              onChangeText={(v) => setContainerDraft(ct.container_type_id, 'borrow', v)}
+                              keyboardType="number-pad"
+                              placeholder="0"
+                              placeholderTextColor={COLORS.textMuted}
+                            />
+                          )}
+                          {selectedCustomer && (
+                            <TextInput
+                              style={styles.containerFieldInput}
+                              value={getContainerDraft(ct.container_type_id, 'return')}
+                              onChangeText={(v) => setContainerDraft(ct.container_type_id, 'return', v)}
+                              keyboardType="number-pad"
+                              placeholder="0"
+                              placeholderTextColor={COLORS.textMuted}
+                            />
+                          )}
+                          <TextInput
+                            style={styles.containerFieldInput}
+                            value={getContainerDraft(ct.container_type_id, 'purchase')}
+                            onChangeText={(v) => setContainerDraft(ct.container_type_id, 'purchase', v)}
+                            keyboardType="number-pad"
+                            placeholder="0"
+                            placeholderTextColor={COLORS.textMuted}
+                          />
+                        </View>
+
+                        {selectedCustomer && borrowQty > 0 && (
+                          <View style={styles.feeRow}>
+                            <Text style={styles.feeLabel}>Borrow fee ₱</Text>
+                            <TextInput
+                              style={styles.feeInput}
+                              value={getContainerDraft(ct.container_type_id, 'borrowFee')}
+                              onChangeText={(v) => setContainerDraft(ct.container_type_id, 'borrowFee', v)}
+                              keyboardType="decimal-pad"
+                              placeholder="0"
+                              placeholderTextColor={COLORS.textMuted}
+                            />
+                            <TouchableOpacity
+                              style={[styles.feePaidToggle, draft?.borrowFeePaid && styles.feePaidToggleActive]}
+                              onPress={() => toggleFeePaid(ct.container_type_id, 'borrow')}
+                            >
+                              <Text style={[styles.feePaidToggleText, draft?.borrowFeePaid && styles.feePaidToggleTextActive]}>
+                                {draft?.borrowFeePaid ? '✅ Paid' : 'Unpaid'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+
+                        {purchaseQty > 0 && (
+                          <View style={styles.feeRow}>
+                            <Text style={styles.feeLabel}>Purchase fee ₱</Text>
+                            <TextInput
+                              style={styles.feeInput}
+                              value={getContainerDraft(ct.container_type_id, 'purchaseFee')}
+                              onChangeText={(v) => setContainerDraft(ct.container_type_id, 'purchaseFee', v)}
+                              keyboardType="decimal-pad"
+                              placeholder="0"
+                              placeholderTextColor={COLORS.textMuted}
+                            />
+                            <TouchableOpacity
+                              style={[styles.feePaidToggle, draft?.purchaseFeePaid && styles.feePaidToggleActive]}
+                              onPress={() => toggleFeePaid(ct.container_type_id, 'purchase')}
+                            >
+                              <Text style={[styles.feePaidToggleText, draft?.purchaseFeePaid && styles.feePaidToggleTextActive]}>
+                                {draft?.purchaseFeePaid ? '✅ Paid' : 'Unpaid'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
                 </View>
               )}
             </View>
@@ -955,6 +1039,23 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: COLORS.border, borderRadius: 8,
     paddingVertical: 6, textAlign: 'center', backgroundColor: COLORS.background,
   },
+  feeRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginBottom: 10, marginLeft: 12,
+  },
+  feeLabel: { fontSize: 12, color: COLORS.textSecondary, flex: 1 },
+  feeInput: {
+    width: 70, fontSize: 13, fontWeight: '600', color: COLORS.textPrimary,
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 8,
+    paddingVertical: 6, textAlign: 'center', backgroundColor: COLORS.background,
+  },
+  feePaidToggle: {
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 6, backgroundColor: COLORS.background,
+  },
+  feePaidToggleActive: { borderColor: COLORS.primary, backgroundColor: '#E1F5EE' },
+  feePaidToggleText: { fontSize: 12, fontWeight: '600', color: COLORS.textMuted },
+  feePaidToggleTextActive: { color: COLORS.primary },
   pendingSection: {
     backgroundColor: '#FFF7ED', borderRadius: 12, padding: 14,
     marginBottom: 16, borderWidth: 1, borderColor: '#FCD34D',

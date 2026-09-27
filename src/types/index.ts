@@ -1,3 +1,14 @@
+export type UserRole = 'super_admin' | 'manager' | 'store_owner' | 'staff';
+
+export interface StoreMember {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface Customer {
   customer_id: string;
   customer_name: string;
@@ -73,12 +84,27 @@ export interface ContainerTxnInput {
   container_type_id: string;
   txn_type: ContainerTxnType;
   quantity: number;
+  fee_amount?: number | null;
+  fee_paid?: boolean;
 }
 
 export interface CustomerContainerBalance {
   container_type_id: string;
   label: string;
+  borrowed_qty: number;
+  returned_qty: number;
+  purchased_qty: number;
   outstanding_qty: number;
+}
+
+export interface UnpaidContainerFee {
+  transaction_id: string;
+  container_type_id: string;
+  label: string;
+  txn_type: ContainerTxnType;
+  quantity: number;
+  fee_amount: number;
+  created_at: string;
 }
 
 export interface StoreContainerSummary {

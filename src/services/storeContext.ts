@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 let cachedStoreId: string | null = null;
 let cachedUserId: string | null = null;
 let cachedStoreName: string | null = null;
+let cachedUserRole: string | null = null;
 
 export async function getCurrentUserId(): Promise<string> {
   if (cachedUserId) return cachedUserId;
@@ -41,8 +42,23 @@ export async function getCurrentStoreName(): Promise<string> {
   return storeName;
 }
 
+export async function getCurrentUserRole(): Promise<string> {
+  if (cachedUserRole) return cachedUserRole;
+  const userId = await getCurrentUserId();
+  const { data, error } = await supabase
+    .from('users')
+    .select('role')
+    .eq('id', userId)
+    .single();
+  if (error) throw new Error(error.message);
+  const role: string = data?.role ?? '';
+  cachedUserRole = role;
+  return role;
+}
+
 export function clearStoreContextCache(): void {
   cachedStoreId = null;
   cachedUserId = null;
   cachedStoreName = null;
+  cachedUserRole = null;
 }

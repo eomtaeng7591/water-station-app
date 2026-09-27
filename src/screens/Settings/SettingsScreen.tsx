@@ -9,8 +9,10 @@ import { useNavigation } from '@react-navigation/native';
 import { settingsService } from '../../services/settingsService';
 import { pinService } from '../../services/pinService';
 import { containerService } from '../../services/containerService';
+import { staffService } from '../../services/staffService';
+import { getCurrentUserRole } from '../../services/storeContext';
 import { COLORS } from '../../constants';
-import { ContainerType } from '../../types';
+import { ContainerType, StoreMember } from '../../types';
 import NotificationSettings from './NotificationSettings';
 import PinLockScreen from '../Auth/PinLockScreen';
 
@@ -34,11 +36,19 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
 
   const [containers, setContainers] = useState<ContainerType[]>([]);
   const [containersLoading, setContainersLoading] = useState(true);
-  const [qtyDrafts, setQtyDrafts] = useState<Record<string, string>>({});
-  const [qtySavingId, setQtySavingId] = useState<string | null>(null);
   const [otherOpen, setOtherOpen] = useState(false);
   const [otherLabel, setOtherLabel] = useState('');
   const [addContainerLoading, setAddContainerLoading] = useState(false);
+
+  const [isOwner, setIsOwner] = useState(false);
+  const [staff, setStaff] = useState<StoreMember[]>([]);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [staffError, setStaffError] = useState<string | null>(null);
+  const [addStaffOpen, setAddStaffOpen] = useState(false);
+  const [staffName, setStaffName] = useState('');
+  const [staffEmail, setStaffEmail] = useState('');
+  const [staffPassword, setStaffPassword] = useState('');
+  const [addStaffLoading, setAddStaffLoading] = useState(false);
 
   const loadContainers = () => {
     setContainersLoading(true);
@@ -46,6 +56,15 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
       .then(setContainers)
       .catch(console.error)
       .finally(() => setContainersLoading(false));
+  };
+
+  const loadStaff = () => {
+    setStaffLoading(true);
+    setStaffError(null);
+    staffService.listStaff()
+      .then(setStaff)
+      .catch(e => setStaffError(e.message || 'Failed to load staff.'))
+      .finally(() => setStaffLoading(false));
   };
 
   useEffect(() => {
@@ -57,7 +76,43 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
       setMonthlyTarget(String(s.monthly_target ?? 0));
     }).catch(console.error);
     loadContainers();
+    getCurrentUserRole().then(role => {
+      const owner = role === 'store_owner';
+      setIsOwner(owner);
+      if (owner) loadStaff();
+    }).catch(() => {});
   }, []);
+
+  const handleAddStaff = async () => {
+    const name = staffName.trim();
+    const email = staffEmail.trim();
+    if (!name) {
+      Alert.alert('Error', 'Please enter a name.');
+      return;
+    }
+    if (!email) {
+      Alert.alert('Error', 'Please enter an email.');
+      return;
+    }
+    if (staffPassword.length < 6) {
+      Alert.alert('Error', 'Temporary password must be at least 6 characters.');
+      return;
+    }
+    setAddStaffLoading(true);
+    try {
+      await staffService.addStaff(name, email, staffPassword);
+      setAddStaffOpen(false);
+      setStaffName('');
+      setStaffEmail('');
+      setStaffPassword('');
+      loadStaff();
+      Alert.alert('✅ Staff Added', `${name} can now log in with the temporary password.`);
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to add staff.');
+    } finally {
+      setAddStaffLoading(false);
+    }
+  };
 
   const handleAddContainer = async (label: string) => {
     const trimmed = label.trim();
@@ -79,26 +134,6 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
       Alert.alert('Error', e.message || 'Failed to add container size.');
     } finally {
       setAddContainerLoading(false);
-    }
-  };
-
-  const handleSaveQty = async (ct: ContainerType) => {
-    const draft = qtyDrafts[ct.container_type_id];
-    if (draft === undefined) return;
-    const qty = parseInt(draft, 10);
-    if (isNaN(qty) || qty < 0) {
-      Alert.alert('Error', 'Please enter a valid quantity.');
-      return;
-    }
-    if (qty === ct.owned_qty) return;
-    setQtySavingId(ct.container_type_id);
-    try {
-      await containerService.updateOwnedQty(ct.container_type_id, qty);
-      loadContainers();
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to update quantity.');
-    } finally {
-      setQtySavingId(null);
     }
   };
 
@@ -221,6 +256,84 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
           <Text style={styles.navCardArrow}>›</Text>
         </TouchableOpacity>
 
+        {/* Staff Management */}
+        {isOwner && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>👤 Staff Management</Text>
+            <Text style={styles.sectionNote}>Accounts that can log in to this store.</Text>
+
+            {staffLoading ? (
+              <ActivityIndicator color={COLORS.primary} style={{ marginBottom: 12 }} />
+            ) : staffError ? (
+              <Text style={styles.emptyText}>{staffError}</Text>
+            ) : staff.length === 0 ? (
+              <Text style={styles.emptyText}>No staff accounts yet.</Text>
+            ) : (
+              staff.map(m => (
+                <View key={m.id} style={styles.staffRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.staffName}>{m.name}</Text>
+                    <Text style={styles.staffEmail}>{m.email}</Text>
+                  </View>
+                  <View style={styles.staffRoleBadge}>
+                    <Text style={styles.staffRoleBadgeText}>
+                      {m.role === 'store_owner' ? 'Owner' : m.role}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            )}
+
+            {addStaffOpen ? (
+              <View style={styles.staffAddBox}>
+                <Text style={styles.inputLabelSm}>Name</Text>
+                <TextInput
+                  style={styles.staffInput}
+                  value={staffName}
+                  onChangeText={setStaffName}
+                  placeholder="Staff Name"
+                  placeholderTextColor={COLORS.textMuted}
+                  autoFocus
+                />
+                <Text style={styles.inputLabelSm}>Email</Text>
+                <TextInput
+                  style={styles.staffInput}
+                  value={staffEmail}
+                  onChangeText={setStaffEmail}
+                  placeholder="name@example.com"
+                  placeholderTextColor={COLORS.textMuted}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+                <Text style={styles.inputLabelSm}>Temporary Password</Text>
+                <TextInput
+                  style={styles.staffInput}
+                  value={staffPassword}
+                  onChangeText={setStaffPassword}
+                  placeholder="At least 6 characters"
+                  placeholderTextColor={COLORS.textMuted}
+                  secureTextEntry
+                />
+                <TouchableOpacity style={styles.saveBtn} onPress={handleAddStaff} disabled={addStaffLoading}>
+                  {addStaffLoading ? <ActivityIndicator color="#fff" /> : (
+                    <Text style={styles.saveBtnText}>Add Staff</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.staffCancelBtn}
+                  onPress={() => { setAddStaffOpen(false); setStaffName(''); setStaffEmail(''); setStaffPassword(''); }}
+                >
+                  <Text style={styles.staffCancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.saveBtn} onPress={() => setAddStaffOpen(true)}>
+                <Text style={styles.saveBtnText}>+ Add Staff</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* Unit Price */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Unit Price (PHP / Gallon)</Text>
@@ -263,7 +376,9 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
         {/* Container Management */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🧴 Container Management</Text>
-          <Text style={styles.sectionNote}>Manage the container sizes and quantities your store owns.</Text>
+          <Text style={styles.sectionNote}>
+            Manage the container sizes your store offers. Adjust stock quantities from Container Inventory (Restock / Dispose).
+          </Text>
 
           {containersLoading ? (
             <ActivityIndicator color={COLORS.primary} style={{ marginBottom: 12 }} />
@@ -276,23 +391,7 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
                   <Text style={styles.containerLabel}>{ct.label}</Text>
                   {!ct.is_active && <Text style={styles.containerInactiveText}>Inactive</Text>}
                 </View>
-                <TextInput
-                  style={styles.containerQtyInput}
-                  value={qtyDrafts[ct.container_type_id] ?? String(ct.owned_qty)}
-                  onChangeText={(v) => setQtyDrafts(d => ({ ...d, [ct.container_type_id]: v }))}
-                  keyboardType="number-pad"
-                  editable={ct.is_active}
-                />
-                <TouchableOpacity
-                  style={styles.containerSaveBtn}
-                  onPress={() => handleSaveQty(ct)}
-                  disabled={!ct.is_active || qtySavingId === ct.container_type_id}
-                >
-                  {qtySavingId === ct.container_type_id
-                    ? <ActivityIndicator color={COLORS.primary} size="small" />
-                    : <Text style={styles.containerSaveBtnText}>Save</Text>
-                  }
-                </TouchableOpacity>
+                <Text style={styles.containerQtyDisplay}>{ct.owned_qty}</Text>
                 <TouchableOpacity style={styles.containerToggleBtn} onPress={() => handleToggleContainerActive(ct)}>
                   <Text style={[styles.containerToggleBtnText, { color: ct.is_active ? COLORS.danger : COLORS.primary }]}>
                     {ct.is_active ? 'Deactivate' : 'Activate'}
@@ -523,11 +622,8 @@ const styles = StyleSheet.create({
   containerRowInactive: { opacity: 0.5 },
   containerLabel: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
   containerInactiveText: { fontSize: 11, color: COLORS.textMuted, marginTop: 1 },
-  containerQtyInput: {
-    width: 60, fontSize: 15, fontWeight: '700', color: COLORS.textPrimary,
-    borderWidth: 1, borderColor: COLORS.border, borderRadius: 8,
-    paddingVertical: 6, paddingHorizontal: 8, textAlign: 'center',
-    backgroundColor: COLORS.background,
+  containerQtyDisplay: {
+    minWidth: 32, fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, textAlign: 'right',
   },
   containerSaveBtn: {
     borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
@@ -553,4 +649,20 @@ const styles = StyleSheet.create({
   presetChipText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },
   presetChipTextActive: { color: COLORS.primaryDark },
   presetChipTextDisabled: { color: COLORS.textMuted },
+  staffRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.background,
+  },
+  staffName: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
+  staffEmail: { fontSize: 12, color: COLORS.textMuted, marginTop: 1 },
+  staffRoleBadge: { backgroundColor: '#E1F5EE', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
+  staffRoleBadgeText: { fontSize: 11, fontWeight: '700', color: COLORS.primary },
+  staffAddBox: { marginTop: 12 },
+  inputLabelSm: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6, marginTop: 10 },
+  staffInput: {
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 10,
+    padding: 12, fontSize: 14, color: COLORS.textPrimary, backgroundColor: COLORS.background,
+  },
+  staffCancelBtn: { alignItems: 'center', paddingVertical: 10, marginTop: 4 },
+  staffCancelBtnText: { fontSize: 14, color: COLORS.textMuted },
 });

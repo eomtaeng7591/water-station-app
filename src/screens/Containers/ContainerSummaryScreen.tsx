@@ -1,16 +1,28 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl,
+  Modal, TextInput, Alert, KeyboardAvoidingView, Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { containerService } from '../../services/containerService';
 import { StoreContainerSummary } from '../../types';
 import { COLORS } from '../../constants';
 
+type StockTxnMode = 'restock' | 'dispose';
+
 export default function ContainerSummaryScreen() {
   const navigation = useNavigation<any>();
   const [summary, setSummary] = useState<StoreContainerSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const [modalVisible, setModalVisible] = useState(false);
+  const [modalMode, setModalMode] = useState<StockTxnMode>('restock');
+  const [activeSize, setActiveSize] = useState<StoreContainerSummary | null>(null);
+  const [inputQty, setInputQty] = useState('');
+  const [inputNotes, setInputNotes] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -30,6 +42,33 @@ export default function ContainerSummaryScreen() {
     setRefreshing(true);
     await load();
     setRefreshing(false);
+  };
+
+  const openModal = (size: StoreContainerSummary, mode: StockTxnMode) => {
+    setActiveSize(size);
+    setModalMode(mode);
+    setInputQty('');
+    setInputNotes('');
+    setModalVisible(true);
+  };
+
+  const handleSaveStockTxn = async () => {
+    if (!activeSize) return;
+    const qty = parseInt(inputQty, 10);
+    if (isNaN(qty) || qty <= 0) {
+      Alert.alert('Error', 'Enter a quantity greater than 0.');
+      return;
+    }
+    setSaving(true);
+    try {
+      await containerService.applyStockTxn(activeSize.container_type_id, modalMode, qty, inputNotes.trim() || undefined);
+      setModalVisible(false);
+      await load();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to save.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -84,11 +123,68 @@ export default function ContainerSummaryScreen() {
                     ⚠️ Negative stock — check borrow/return/purchase records for this size.
                   </Text>
                 )}
+
+                <View style={styles.actionRow}>
+                  <TouchableOpacity style={styles.restockBtn} onPress={() => openModal(s, 'restock')}>
+                    <Text style={styles.restockBtnText}>+ Restock</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.disposeBtn} onPress={() => openModal(s, 'dispose')}>
+                    <Text style={styles.disposeBtnText}>Dispose</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             );
           })
         )}
       </ScrollView>
+
+      <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
+        <KeyboardAvoidingView
+          style={styles.modalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => setModalVisible(false)} />
+          <View style={styles.sheet}>
+            <Text style={styles.sheetTitle}>
+              {modalMode === 'restock' ? '+ Restock' : 'Dispose'} — {activeSize?.label}
+            </Text>
+
+            <Text style={styles.inputLabel}>Quantity</Text>
+            <TextInput
+              style={styles.input}
+              value={inputQty}
+              onChangeText={setInputQty}
+              keyboardType="number-pad"
+              placeholder="0"
+              placeholderTextColor={COLORS.textMuted}
+              autoFocus
+            />
+
+            <Text style={styles.inputLabel}>Notes (optional)</Text>
+            <TextInput
+              style={[styles.input, { height: 72, textAlignVertical: 'top' }]}
+              value={inputNotes}
+              onChangeText={setInputNotes}
+              placeholder={modalMode === 'restock' ? 'e.g. Bought 50 new 5L jugs' : 'e.g. Cracked, no longer usable'}
+              placeholderTextColor={COLORS.textMuted}
+              multiline
+            />
+
+            {saving ? (
+              <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />
+            ) : (
+              <TouchableOpacity style={styles.saveBtn} onPress={handleSaveStockTxn}>
+                <Text style={styles.saveBtnText}>
+                  {modalMode === 'restock' ? 'Add to Stock' : 'Confirm Dispose'}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
+              <Text style={styles.cancelText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -124,4 +220,30 @@ const styles = StyleSheet.create({
   availableVal: { fontSize: 22, fontWeight: '700', color: COLORS.primary },
   availableValNegative: { color: COLORS.danger },
   negativeWarning: { fontSize: 12, color: COLORS.danger, marginTop: 8 },
+  actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
+  restockBtn: {
+    flex: 1, backgroundColor: COLORS.primary, borderRadius: 10,
+    paddingVertical: 10, alignItems: 'center',
+  },
+  restockBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  disposeBtn: {
+    flex: 1, borderWidth: 1.5, borderColor: COLORS.danger, borderRadius: 10,
+    paddingVertical: 10, alignItems: 'center',
+  },
+  disposeBtnText: { color: COLORS.danger, fontWeight: '700', fontSize: 13 },
+  modalContainer: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' },
+  sheet: {
+    backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    padding: 24, paddingBottom: 44,
+  },
+  sheetTitle: { fontSize: 17, fontWeight: '700', color: COLORS.textPrimary, marginBottom: 20, textAlign: 'center' },
+  inputLabel: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6 },
+  input: {
+    backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 10, padding: 12, fontSize: 18, color: COLORS.textPrimary, marginBottom: 16,
+  },
+  saveBtn: { backgroundColor: COLORS.primary, borderRadius: 12, padding: 14, alignItems: 'center', marginBottom: 8 },
+  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  cancelBtn: { alignItems: 'center', paddingVertical: 10 },
+  cancelText: { fontSize: 14, color: COLORS.textMuted },
 });
