@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  View, Text, Switch, TouchableOpacity, StyleSheet, Alert, ActivityIndicator,
+  View, Text, Switch, TouchableOpacity, StyleSheet, ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -9,6 +9,7 @@ import {
   cancelDailyReport,
   sendTestNotification,
 } from '../../services/notificationService';
+import { showAlert } from '../../utils/alert';
 import { COLORS } from '../../constants';
 
 const PREF_DAILY = 'notif_daily_enabled';
@@ -33,7 +34,7 @@ export default function NotificationSettings() {
   const handleRequestPermission = async () => {
     const ok = await requestNotificationPermission();
     setHasPermission(ok);
-    if (!ok) Alert.alert('Permission Required', 'Please enable notifications in Settings > Notifications.');
+    if (!ok) showAlert('Permission Required', 'Please enable notifications in Settings > Notifications.');
   };
 
   const toggleDaily = async (val: boolean) => {
@@ -52,7 +53,7 @@ export default function NotificationSettings() {
   const handleTest = async () => {
     if (!hasPermission) { handleRequestPermission(); return; }
     await sendTestNotification();
-    Alert.alert('📳', 'Test notification in 1 second!');
+    showAlert('📳', 'Test notification in 1 second!');
   };
 
   return (

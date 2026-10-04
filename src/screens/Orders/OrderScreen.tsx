@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView,
-  StyleSheet, Alert, ActivityIndicator, Modal, FlatList, RefreshControl,
+  StyleSheet, ActivityIndicator, Modal, FlatList, RefreshControl,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
@@ -16,6 +16,7 @@ import { useOfflineSync } from '../../hooks/useOfflineSync';
 import { useOrderSubmit } from '../../hooks/useOrderSubmit';
 import { Customer, Order, Rider, OrderType, PaymentType, ContainerType, ContainerTxnInput } from '../../types';
 import { shareOrderReceipt } from '../../services/receiptService';
+import { showAlert } from '../../utils/alert';
 
 type ActiveView = 'form' | 'today';
 type FilterType = 'ALL' | 'WALK-IN' | 'DELIVERY';
@@ -77,6 +78,8 @@ export default function OrderScreen() {
   const [riders, setRiders] = useState<Rider[]>([]);
   const [selectedRider, setSelectedRider] = useState<Rider | null>(null);
   const [containerTypes, setContainerTypes] = useState<ContainerType[]>([]);
+  const [containerTypesLoaded, setContainerTypesLoaded] = useState(false);
+  const [containerTypesError, setContainerTypesError] = useState<string | null>(null);
   const [containerSectionOpen, setContainerSectionOpen] = useState(false);
   const [containerDrafts, setContainerDrafts] = useState<Record<string, ContainerDraft>>({});
 
@@ -97,7 +100,13 @@ export default function OrderScreen() {
 
   useEffect(() => {
     riderService.getActiveRiders().then(setRiders).catch(() => {});
-    containerService.getActiveContainerTypes().then(setContainerTypes).catch(() => {});
+    containerService.getActiveContainerTypes()
+      .then(setContainerTypes)
+      .catch(e => {
+        console.error('Failed to load container types:', e);
+        setContainerTypesError(e?.message || 'Failed to load container sizes.');
+      })
+      .finally(() => setContainerTypesLoaded(true));
   }, []);
 
   const loadSettings = async () => {
@@ -141,7 +150,7 @@ export default function OrderScreen() {
   };
 
   const handleDeleteOrder = (order: Order) => {
-    Alert.alert(
+    showAlert(
       'Delete Order',
       `Delete order #${order.receipt_no ?? order.order_id}? This cannot be undone.`,
       [
@@ -153,7 +162,7 @@ export default function OrderScreen() {
               await orderService.deleteOrder(order.order_id);
               await loadOrderData(filterDate);
             } catch (e: any) {
-              Alert.alert('Error', e.message || 'Failed to delete');
+              showAlert('Error', e.message || 'Failed to delete');
             }
           },
         },
@@ -162,7 +171,7 @@ export default function OrderScreen() {
   };
 
   const handleCompletePending = async (order: Order) => {
-    Alert.alert(
+    showAlert(
       'Complete Delivery',
       `Mark ${order.customer?.customer_name ?? 'customer'}'s order as completed?`,
       [
@@ -174,7 +183,7 @@ export default function OrderScreen() {
               await orderService.updateDeliveryStatus(order.order_id, 'COMPLETED');
               await loadOrderData(filterDate);
             } catch (e: any) {
-              Alert.alert('Error', e.message || 'Failed to update');
+              showAlert('Error', e.message || 'Failed to update');
             }
           },
         },
@@ -210,7 +219,7 @@ export default function OrderScreen() {
   const handleQuickAddCustomer = async () => {
     const name = quickAddName.trim();
     if (!name) {
-      Alert.alert('Error', 'Please enter a name.');
+      showAlert('Error', 'Please enter a name.');
       return;
     }
     setQuickAddLoading(true);
@@ -218,7 +227,7 @@ export default function OrderScreen() {
       const created = await customerService.createCustomer(name, quickAddPhone.trim(), '');
       handleSelectCustomer(created);
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to add customer.');
+      showAlert('Error', e.message || 'Failed to add customer.');
     } finally {
       setQuickAddLoading(false);
     }
@@ -287,7 +296,7 @@ export default function OrderScreen() {
 
   const handleSubmit = async (payment: PaymentType) => {
     if (!quantity || parseInt(quantity) < 1) {
-      Alert.alert('Error', 'Please enter quantity.');
+      showAlert('Error', 'Please enter quantity.');
       return;
     }
     setLoading(true);
@@ -309,7 +318,7 @@ export default function OrderScreen() {
       const result = await submitOrder(orderInput);
       if (result.offline) {
         await refreshPendingCount();
-        Alert.alert('📴 Saved Offline', `₱${totalAmount.toLocaleString()} queued — will sync when online.`);
+        showAlert('📴 Saved Offline', `₱${totalAmount.toLocaleString()} queued — will sync when online.`);
       } else {
         const createdOrder = result.order;
 
@@ -318,11 +327,11 @@ export default function OrderScreen() {
           try {
             await containerService.recordTransactions(createdOrder.order_id, customerIdAtSubmit, containerEntries);
           } catch (e: any) {
-            Alert.alert('Container Log Failed', e.message || 'Order was saved, but container transactions failed to record.');
+            showAlert('Container Log Failed', e.message || 'Order was saved, but container transactions failed to record.');
           }
         }
 
-        Alert.alert(
+        showAlert(
           '✅ Order Saved',
           `${payment}  ₱${totalAmount.toLocaleString()}`,
           [
@@ -331,7 +340,7 @@ export default function OrderScreen() {
               onPress: () => {
                 if (createdOrder) {
                   shareOrderReceipt(createdOrder).catch(e =>
-                    Alert.alert('Error', e?.message ?? 'Failed to generate receipt')
+                    showAlert('Error', e?.message ?? 'Failed to generate receipt')
                   );
                 }
               },
@@ -352,7 +361,7 @@ export default function OrderScreen() {
       setContainerDrafts({});
       setContainerSectionOpen(false);
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save');
+      showAlert('Error', e.message || 'Failed to save');
     } finally {
       setLoading(false);
     }
@@ -547,6 +556,17 @@ export default function OrderScreen() {
               multiline
             />
           </View>
+
+          {containerTypesLoaded && containerTypes.length === 0 && (
+            <View style={styles.section}>
+              <Text style={styles.label}>🪣 Container Log (Optional)</Text>
+              <Text style={styles.containerHint}>
+                {containerTypesError
+                  ? `Couldn't load container sizes: ${containerTypesError}`
+                  : 'No container sizes set up yet — add some in Settings → Container Management to enable size pricing and borrow/return tracking.'}
+              </Text>
+            </View>
+          )}
 
           {containerTypes.length > 0 && (
             <View style={styles.section}>
@@ -851,7 +871,7 @@ export default function OrderScreen() {
                 <View style={styles.orderActionRow}>
                   <TouchableOpacity
                     style={styles.orderReceiptBtn}
-                    onPress={() => shareOrderReceipt(order).catch(e => Alert.alert('Error', e?.message ?? 'Failed'))}
+                    onPress={() => shareOrderReceipt(order).catch(e => showAlert('Error', e?.message ?? 'Failed'))}
                   >
                     <Text style={styles.orderReceiptText}>📄 Receipt</Text>
                   </TouchableOpacity>

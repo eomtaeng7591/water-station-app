@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/AppNavigator';
+import AppAlertHost from './src/components/AppAlertHost';
 import {
   requestNotificationPermission,
   setupNotificationListeners,
@@ -26,6 +27,7 @@ export default function App() {
       <SafeAreaProvider>
         <StatusBar style="dark" />
         <AppNavigator />
+        <AppAlertHost />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

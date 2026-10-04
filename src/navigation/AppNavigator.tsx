@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text, ActivityIndicator, View, Alert, Image, StyleSheet, Dimensions } from 'react-native';
+import { Text, ActivityIndicator, View, Image, StyleSheet, Dimensions } from 'react-native';
 
 const SCREEN_W = Dimensions.get('window').width;
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import { pinService } from '../services/pinService';
 import { useOfflineSync } from '../hooks/useOfflineSync';
 import OfflineBanner from '../components/OfflineBanner';
 import { getCurrentStoreName } from '../services/storeContext';
+import { showAlert } from '../utils/alert';
 
 // Screens
 import DashboardScreen from '../screens/Dashboard/DashboardScreen';
@@ -172,7 +173,7 @@ export default function AppNavigator() {
       const next = failCount + 1;
       setFailCount(next);
       if (next >= 5) {
-        Alert.alert('Too many attempts', 'Please log in again.', [
+        showAlert('Too many attempts', 'Please log in again.', [
           { text: 'OK', onPress: () => { authService.logout(); setAppState('login'); } },
         ]);
       }

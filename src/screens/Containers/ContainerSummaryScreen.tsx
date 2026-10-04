@@ -1,13 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl,
-  Modal, TextInput, Alert, KeyboardAvoidingView, Platform,
+  Modal, TextInput, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { containerService } from '../../services/containerService';
 import { StoreContainerSummary } from '../../types';
 import { COLORS } from '../../constants';
+import { showAlert } from '../../utils/alert';
 
 type StockTxnMode = 'restock' | 'dispose';
 
@@ -56,7 +57,7 @@ export default function ContainerSummaryScreen() {
     if (!activeSize) return;
     const qty = parseInt(inputQty, 10);
     if (isNaN(qty) || qty <= 0) {
-      Alert.alert('Error', 'Enter a quantity greater than 0.');
+      showAlert('Error', 'Enter a quantity greater than 0.');
       return;
     }
     setSaving(true);
@@ -65,7 +66,7 @@ export default function ContainerSummaryScreen() {
       setModalVisible(false);
       await load();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save.');
+      showAlert('Error', e.message || 'Failed to save.');
     } finally {
       setSaving(false);
     }

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  TextInput, Modal, Alert, ActivityIndicator, RefreshControl,
+  TextInput, Modal, ActivityIndicator, RefreshControl,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +10,7 @@ import { riderService } from '../../services/riderService';
 import { reportService } from '../../services/reportService';
 import { Rider, RiderStat } from '../../types';
 import { COLORS } from '../../constants';
+import { showAlert } from '../../utils/alert';
 
 type ModalMode = 'add' | 'edit';
 
@@ -93,7 +94,7 @@ export default function RidersScreen() {
 
   const handleSave = async () => {
     if (!formName.trim()) {
-      Alert.alert('Error', 'Please enter rider name.');
+      showAlert('Error', 'Please enter rider name.');
       return;
     }
     setFormLoading(true);
@@ -109,7 +110,7 @@ export default function RidersScreen() {
       setModalVisible(false);
       await loadRiders();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to save');
+      showAlert('Error', e.message || 'Failed to save');
     } finally {
       setFormLoading(false);
     }
@@ -117,7 +118,7 @@ export default function RidersScreen() {
 
   const handleToggle = (rider: Rider) => {
     const label = rider.is_active ? 'Deactivate' : 'Activate';
-    Alert.alert(`${label} Rider`, `${label} ${rider.rider_name}?`, [
+    showAlert(`${label} Rider`, `${label} ${rider.rider_name}?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: label, onPress: async () => {
@@ -129,7 +130,7 @@ export default function RidersScreen() {
   };
 
   const handleDelete = (rider: Rider) => {
-    Alert.alert('Delete Rider', `Delete ${rider.rider_name}?\nAssigned deliveries will be unassigned.`, [
+    showAlert('Delete Rider', `Delete ${rider.rider_name}?\nAssigned deliveries will be unassigned.`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Delete', style: 'destructive', onPress: async () => {
@@ -137,7 +138,7 @@ export default function RidersScreen() {
             await riderService.deleteRider(rider.rider_id);
             loadRiders();
           } catch (e: any) {
-            Alert.alert('Error', e.message || 'Failed to delete');
+            showAlert('Error', e.message || 'Failed to delete');
           }
         },
       },

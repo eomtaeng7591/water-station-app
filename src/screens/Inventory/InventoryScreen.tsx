@@ -1,13 +1,14 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Alert, ActivityIndicator, TextInput, RefreshControl, Modal,
+  ActivityIndicator, TextInput, RefreshControl, Modal,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { inventoryService, InventoryItem, InventoryLog } from '../../services/inventoryService';
 import { COLORS } from '../../constants';
+import { showAlert } from '../../utils/alert';
 
 const LOG_TYPE_COLOR: Record<string, string> = {
   RESTOCK:    '#15803D',
@@ -71,7 +72,7 @@ export default function InventoryScreen() {
     if (!activeItem) return;
     const qty = parseInt(inputQty);
     if (isNaN(qty) || (modalMode !== 'threshold' && qty === 0)) {
-      Alert.alert('Error', 'Enter a valid number.');
+      showAlert('Error', 'Enter a valid number.');
       return;
     }
     setSaving(true);
@@ -86,7 +87,7 @@ export default function InventoryScreen() {
       setModalVisible(false);
       await load();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed');
+      showAlert('Error', e.message || 'Failed');
     } finally {
       setSaving(false);
     }

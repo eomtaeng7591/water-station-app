@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform,
+  ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { customerService } from '../../services/customerService';
 import { Customer } from '../../types';
 import { COLORS } from '../../constants';
+import { showAlert } from '../../utils/alert';
 
 export default function AddCustomerScreen() {
   const navigation = useNavigation<any>();
@@ -23,7 +24,7 @@ export default function AddCustomerScreen() {
 
   const handleSave = async () => {
     if (!name.trim() || !phone.trim() || !address.trim()) {
-      Alert.alert('Input Error', 'Please fill in name, phone, and address.');
+      showAlert('Input Error', 'Please fill in name, phone, and address.');
       return;
     }
     setLoading(true);
@@ -35,17 +36,17 @@ export default function AddCustomerScreen() {
           address: address.trim(),
           notes: notes.trim() || undefined,
         });
-        Alert.alert('✅ Updated', `${name} has been updated.`, [
+        showAlert('✅ Updated', `${name} has been updated.`, [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
       } else {
         await customerService.createCustomer(name.trim(), phone.trim(), address.trim(), notes.trim() || undefined);
-        Alert.alert('✅ Registered', `${name} has been registered.`, [
+        showAlert('✅ Registered', `${name} has been registered.`, [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
       }
     } catch (e: any) {
-      Alert.alert('Error', e.message || (isEdit ? 'Failed to update' : 'Failed to register'));
+      showAlert('Error', e.message || (isEdit ? 'Failed to update' : 'Failed to register'));
     } finally {
       setLoading(false);
     }

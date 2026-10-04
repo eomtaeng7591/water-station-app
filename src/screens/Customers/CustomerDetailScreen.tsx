@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Modal, TextInput, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -12,6 +12,7 @@ import { containerService } from '../../services/containerService';
 import { Customer, Order, CreditBalance, CustomerContainerBalance, UnpaidContainerFee } from '../../types';
 import { COLORS } from '../../constants';
 import { getCustomerTier } from '../../utils/customerTier';
+import { showAlert } from '../../utils/alert';
 
 export default function CustomerDetailScreen() {
   const navigation = useNavigation<any>();
@@ -56,7 +57,7 @@ export default function CustomerDetailScreen() {
   const handleSavePayment = async () => {
     const amount = parseFloat(paymentAmount);
     if (isNaN(amount) || amount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount.');
+      showAlert('Error', 'Please enter a valid amount.');
       return;
     }
     setPaymentSaving(true);
@@ -67,7 +68,7 @@ export default function CustomerDetailScreen() {
       setPaymentNotes('');
       await loadAll();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to record payment.');
+      showAlert('Error', e.message || 'Failed to record payment.');
     } finally {
       setPaymentSaving(false);
     }
@@ -79,7 +80,7 @@ export default function CustomerDetailScreen() {
       await containerService.markFeePaid(fee.transaction_id);
       await loadAll();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to update.');
+      showAlert('Error', e.message || 'Failed to update.');
     } finally {
       setMarkPaidId(null);
     }
@@ -91,7 +92,7 @@ export default function CustomerDetailScreen() {
   const returnedList = containerBalances.filter(cb => cb.outstanding_qty <= 0 && cb.returned_qty > 0);
 
   const handleDelete = () => {
-    Alert.alert(
+    showAlert(
       'Delete Customer',
       `Delete ${customer.customer_name}? All related orders and credits will also be deleted.`,
       [
@@ -103,7 +104,7 @@ export default function CustomerDetailScreen() {
               await customerService.deleteCustomer(customer.customer_id);
               navigation.goBack();
             } catch (e: any) {
-              Alert.alert('Error', e.message || 'Failed to delete');
+              showAlert('Error', e.message || 'Failed to delete');
             }
           },
         },

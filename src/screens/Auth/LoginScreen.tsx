@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity,
-  StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform,
+  StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authService } from '../../services/authService';
 import { COLORS } from '../../constants';
+import { showAlert } from '../../utils/alert';
 
 interface Props {
   onLoginSuccess: () => void;
@@ -18,7 +19,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Error', 'Please enter email and password.');
+      showAlert('Error', 'Please enter email and password.');
       return;
     }
     setLoading(true);
@@ -26,7 +27,7 @@ export default function LoginScreen({ onLoginSuccess }: Props) {
       await authService.login(email.trim(), password);
       onLoginSuccess();
     } catch (e: any) {
-      Alert.alert('Login Failed', e.message || 'Check your email or password.');
+      showAlert('Login Failed', e.message || 'Check your email or password.');
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  ActivityIndicator, RefreshControl, Modal, Alert,
+  ActivityIndicator, RefreshControl, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -9,6 +9,7 @@ import { reportService, DailyStatsResult } from '../../services/reportService';
 import { TargetProgress } from '../../types';
 import { exportDailyCSV, exportDailyPDF, exportMonthlyCSV, exportMonthlyPDF } from '../../services/exportService';
 import { COLORS } from '../../constants';
+import { showAlert } from '../../utils/alert';
 import WeeklyChart from './WeeklyChart';
 import MonthlyTable from './MonthlyTable';
 import YearlyChart from './YearlyChart';
@@ -121,7 +122,7 @@ export default function DashboardScreen() {
       }
       setExportVisible(false);
     } catch (e: any) {
-      Alert.alert('Export Failed', e?.message ?? 'Unknown error');
+      showAlert('Export Failed', e?.message ?? 'Unknown error');
     } finally {
       setExporting(false);
     }

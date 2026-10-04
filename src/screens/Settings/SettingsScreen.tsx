@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator, ScrollView, Modal,
+  ActivityIndicator, ScrollView, Modal,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ import { COLORS } from '../../constants';
 import { ContainerType, StoreMember } from '../../types';
 import NotificationSettings from './NotificationSettings';
 import PinLockScreen from '../Auth/PinLockScreen';
+import { showAlert } from '../../utils/alert';
 
 const CONTAINER_SIZE_PRESETS = ['5L', '6L', '7L', '10L'];
 
@@ -87,15 +88,15 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
     const name = staffName.trim();
     const email = staffEmail.trim();
     if (!name) {
-      Alert.alert('Error', 'Please enter a name.');
+      showAlert('Error', 'Please enter a name.');
       return;
     }
     if (!email) {
-      Alert.alert('Error', 'Please enter an email.');
+      showAlert('Error', 'Please enter an email.');
       return;
     }
     if (staffPassword.length < 6) {
-      Alert.alert('Error', 'Temporary password must be at least 6 characters.');
+      showAlert('Error', 'Temporary password must be at least 6 characters.');
       return;
     }
     setAddStaffLoading(true);
@@ -106,9 +107,9 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
       setStaffEmail('');
       setStaffPassword('');
       loadStaff();
-      Alert.alert('✅ Staff Added', `${name} can now log in with the temporary password.`);
+      showAlert('✅ Staff Added', `${name} can now log in with the temporary password.`);
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to add staff.');
+      showAlert('Error', e.message || 'Failed to add staff.');
     } finally {
       setAddStaffLoading(false);
     }
@@ -117,11 +118,11 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
   const handleAddContainer = async (label: string) => {
     const trimmed = label.trim();
     if (!trimmed) {
-      Alert.alert('Error', 'Please enter a size label.');
+      showAlert('Error', 'Please enter a size label.');
       return;
     }
     if (containers.some(c => c.label.toLowerCase() === trimmed.toLowerCase())) {
-      Alert.alert('Error', `"${trimmed}" already exists.`);
+      showAlert('Error', `"${trimmed}" already exists.`);
       return;
     }
     setAddContainerLoading(true);
@@ -131,7 +132,7 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
       setOtherLabel('');
       loadContainers();
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Failed to add container size.');
+      showAlert('Error', e.message || 'Failed to add container size.');
     } finally {
       setAddContainerLoading(false);
     }
@@ -139,7 +140,7 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
 
   const handleToggleContainerActive = (ct: ContainerType) => {
     const label = ct.is_active ? 'Deactivate' : 'Activate';
-    Alert.alert(`${label} "${ct.label}"?`, ct.is_active ? 'Past transactions are kept.' : undefined, [
+    showAlert(`${label} "${ct.label}"?`, ct.is_active ? 'Past transactions are kept.' : undefined, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: label,
@@ -148,7 +149,7 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
             await containerService.setActive(ct.container_type_id, !ct.is_active);
             loadContainers();
           } catch (e: any) {
-            Alert.alert('Error', e.message || 'Failed to update.');
+            showAlert('Error', e.message || 'Failed to update.');
           }
         },
       },
@@ -159,7 +160,7 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
     const dp = parseFloat(deliveryPrice);
     const wp = parseFloat(walkinPrice);
     if (isNaN(dp) || isNaN(wp) || dp <= 0 || wp <= 0) {
-      Alert.alert('Error', 'Please enter a valid price.');
+      showAlert('Error', 'Please enter a valid price.');
       return;
     }
     setPriceLoading(true);
@@ -167,9 +168,9 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
       await settingsService.updatePrices(dp, wp);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-      Alert.alert('✅ Saved', `Prices updated: Delivery ₱${dp} / Walk-in ₱${wp}`);
+      showAlert('✅ Saved', `Prices updated: Delivery ₱${dp} / Walk-in ₱${wp}`);
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Save failed');
+      showAlert('Error', e.message || 'Save failed');
     } finally {
       setPriceLoading(false);
     }
@@ -191,7 +192,7 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
       setPinModal('confirm');
     } else if (pinModal === 'confirm') {
       if (pin !== pendingPin) {
-        Alert.alert('Mismatch', 'PINs do not match. Try again.');
+        showAlert('Mismatch', 'PINs do not match. Try again.');
         setPinModal('set');
         setPendingPin('');
         return;
@@ -199,18 +200,18 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
       await pinService.setPin(pin);
       setPinEnabled(true);
       setPinModal(null);
-      Alert.alert('✅ PIN Set', 'App lock is now enabled.');
+      showAlert('✅ PIN Set', 'App lock is now enabled.');
     } else if (pinModal === 'verify-old') {
       const ok = await pinService.verify(pin);
-      if (!ok) { Alert.alert('Incorrect PIN'); return; }
+      if (!ok) { showAlert('Incorrect PIN'); return; }
       setPinModal('set');
     } else if (pinModal === 'verify-disable') {
       const ok = await pinService.verify(pin);
-      if (!ok) { Alert.alert('Incorrect PIN'); return; }
+      if (!ok) { showAlert('Incorrect PIN'); return; }
       await pinService.disable();
       setPinEnabled(false);
       setPinModal(null);
-      Alert.alert('PIN Disabled', 'App lock has been turned off.');
+      showAlert('PIN Disabled', 'App lock has been turned off.');
     }
   };
 
@@ -218,7 +219,7 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
     const dt = parseFloat(dailyTarget);
     const mt = parseFloat(monthlyTarget);
     if (isNaN(dt) || isNaN(mt) || dt < 0 || mt < 0) {
-      Alert.alert('Error', 'Please enter valid target amounts.');
+      showAlert('Error', 'Please enter valid target amounts.');
       return;
     }
     setTargetLoading(true);
@@ -227,7 +228,7 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
       setTargetSaved(true);
       setTimeout(() => setTargetSaved(false), 2000);
     } catch (e: any) {
-      Alert.alert('Error', e.message || 'Save failed');
+      showAlert('Error', e.message || 'Save failed');
     } finally {
       setTargetLoading(false);
     }
@@ -534,7 +535,7 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
           <TouchableOpacity
             style={[styles.saveBtn, { backgroundColor: COLORS.danger, marginBottom: 0 }]}
             onPress={() => {
-              Alert.alert('Logout', 'Are you sure you want to logout?', [
+              showAlert('Logout', 'Are you sure you want to logout?', [
                 { text: 'Cancel', style: 'cancel' },
                 { text: 'Logout', style: 'destructive', onPress: onLogout },
               ]);
