@@ -179,7 +179,7 @@ export default function OrderScreen() {
   const handleCompletePending = async (order: Order) => {
     showAlert(
       'Complete Delivery',
-      `Mark ${order.customer?.customer_name ?? 'customer'}'s order as completed?`,
+      `Mark ${order.customer?.customer_name ?? 'customer'}'s delivery as completed and ₱${Number(order.total_amount).toLocaleString()} (${order.payment_type}) as received?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {

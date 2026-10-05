@@ -81,6 +81,8 @@ export const orderService = {
       store_id: storeId,
       method: PAYMENT_TO_DB[input.payment_type],
       amount: input.total_amount,
+      received: isCompleted,
+      received_at: isCompleted ? nowIso : null,
     });
     if (payErr) throw new Error(payErr.message);
 
@@ -120,14 +122,24 @@ export const orderService = {
   },
 
   async updateDeliveryStatus(orderId: string, status: 'PENDING' | 'COMPLETED'): Promise<void> {
+    const isCompleted = status === 'COMPLETED';
+    const nowIso = new Date().toISOString();
+
     const { error } = await supabase
       .from('orders')
       .update({
-        status: status === 'COMPLETED' ? 'completed' : 'pending',
-        completed_at: status === 'COMPLETED' ? new Date().toISOString() : null,
+        status: isCompleted ? 'completed' : 'pending',
+        completed_at: isCompleted ? nowIso : null,
       })
       .eq('id', orderId);
     if (error) throw new Error(error.message);
+
+    // 배달이 완료됐다는 건 기사가 돌아와 수금을 보고했다는 뜻이므로, 결제도 같이 수금 확정 처리한다.
+    const { error: payErr } = await supabase
+      .from('payments')
+      .update({ received: isCompleted, received_at: isCompleted ? nowIso : null })
+      .eq('order_id', orderId);
+    if (payErr) throw new Error(payErr.message);
   },
 
   async getOrdersByCustomer(customerId: string): Promise<Order[]> {
