@@ -193,6 +193,16 @@ export default function ContainerSummaryScreen() {
     ]);
   };
 
+  const handleToggleChannel = async (ct: MergedContainer, channel: 'walkin' | 'delivery') => {
+    const current = channel === 'walkin' ? ct.available_walkin : ct.available_delivery;
+    try {
+      await containerService.setChannelAvailability(ct.container_type_id, channel, !current);
+      await load();
+    } catch (e: any) {
+      showAlert('Error', e.message || 'Failed to update.');
+    }
+  };
+
   const handleDeleteContainer = (ct: MergedContainer) => {
     showAlert(
       `Delete "${ct.label}"?`,
@@ -327,6 +337,28 @@ export default function ContainerSummaryScreen() {
                         ? <ActivityIndicator color={COLORS.primary} size="small" />
                         : <Text style={styles.priceSaveBtnText}>Save</Text>
                       }
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {s.is_active && (
+                  <View style={styles.channelRow}>
+                    <Text style={styles.channelRowLabel}>Selectable in:</Text>
+                    <TouchableOpacity
+                      style={[styles.channelChip, s.available_walkin && styles.channelChipActive]}
+                      onPress={() => handleToggleChannel(s, 'walkin')}
+                    >
+                      <Text style={[styles.channelChipText, s.available_walkin && styles.channelChipTextActive]}>
+                        🚶 Walk-in
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.channelChip, s.available_delivery && styles.channelChipActive]}
+                      onPress={() => handleToggleChannel(s, 'delivery')}
+                    >
+                      <Text style={[styles.channelChipText, s.available_delivery && styles.channelChipTextActive]}>
+                        🏍️ Delivery
+                      </Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -510,6 +542,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#E1F5EE',
   },
   priceSaveBtnText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
+  channelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  channelRowLabel: { fontSize: 11, color: COLORS.textMuted, marginRight: 2 },
+  channelChip: {
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 14,
+    paddingHorizontal: 10, paddingVertical: 5, backgroundColor: COLORS.background,
+  },
+  channelChipActive: { borderColor: COLORS.primary, backgroundColor: '#E1F5EE' },
+  channelChipText: { fontSize: 11, fontWeight: '600', color: COLORS.textMuted },
+  channelChipTextActive: { color: COLORS.primary },
   addSection: {
     backgroundColor: COLORS.surface, borderRadius: 14, padding: 16,
     marginBottom: 24, borderWidth: 1, borderColor: COLORS.border,

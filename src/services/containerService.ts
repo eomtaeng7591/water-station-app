@@ -11,6 +11,8 @@ function mapContainerType(row: any): ContainerType {
     is_active: row.is_active,
     walkin_price: row.walkin_price === null || row.walkin_price === undefined ? null : Number(row.walkin_price),
     delivery_price: row.delivery_price === null || row.delivery_price === undefined ? null : Number(row.delivery_price),
+    available_walkin: row.available_walkin ?? true,
+    available_delivery: row.available_delivery ?? true,
   };
 }
 
@@ -82,6 +84,21 @@ export const containerService = {
     const { data, error } = await supabase
       .from('container_types')
       .update({ is_active: isActive })
+      .eq('id', containerTypeId)
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+    return mapContainerType(data);
+  },
+  async setChannelAvailability(
+    containerTypeId: string,
+    channel: 'walkin' | 'delivery',
+    available: boolean
+  ): Promise<ContainerType> {
+    const field = channel === 'walkin' ? 'available_walkin' : 'available_delivery';
+    const { data, error } = await supabase
+      .from('container_types')
+      .update({ [field]: available })
       .eq('id', containerTypeId)
       .select('*')
       .single();

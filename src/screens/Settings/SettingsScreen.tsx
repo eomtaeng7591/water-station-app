@@ -20,6 +20,7 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
   const navigation = useNavigation<any>();
   const [deliveryPrice, setDeliveryPrice] = useState('45');
   const [walkinPrice, setWalkinPrice] = useState('40');
+  const [legacyDeliveryPrice, setLegacyDeliveryPrice] = useState('');
   const [priceLoading, setPriceLoading] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -56,6 +57,7 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
     settingsService.getSettings().then(s => {
       setDeliveryPrice(String(s.delivery_price));
       setWalkinPrice(String(s.walkin_price));
+      setLegacyDeliveryPrice(s.legacy_delivery_price === null ? '' : String(s.legacy_delivery_price));
       setDailyTarget(String(s.daily_target ?? 0));
       setMonthlyTarget(String(s.monthly_target ?? 0));
     }).catch(console.error);
@@ -104,12 +106,18 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
       showAlert('Error', 'Please enter a valid price.');
       return;
     }
+    const lp = legacyDeliveryPrice.trim() === '' ? null : parseFloat(legacyDeliveryPrice);
+    if (lp !== null && (isNaN(lp) || lp <= 0)) {
+      showAlert('Error', 'Please enter a valid legacy delivery price, or leave it blank to disable it.');
+      return;
+    }
     setPriceLoading(true);
     try {
       await settingsService.updatePrices(dp, wp);
+      await settingsService.updateLegacyDeliveryPrice(lp);
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-      showAlert('✅ Saved', `Prices updated: Delivery ₱${dp} / Walk-in ₱${wp}`);
+      showAlert('✅ Saved', `Prices updated: Delivery ₱${dp} / Walk-in ₱${wp}` + (lp !== null ? ` / Legacy Delivery ₱${lp}` : ''));
     } catch (e: any) {
       showAlert('Error', e.message || 'Save failed');
     } finally {
@@ -305,6 +313,24 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
                   keyboardType="decimal-pad"
                 />
               </View>
+            </View>
+          </View>
+
+          <Text style={styles.priceLabel}>🏷️ Legacy Delivery Price (optional)</Text>
+          <Text style={styles.sectionNote}>
+            For existing customers who still pay the old delivery rate. Leave blank to hide the quick-switch button in Orders.
+          </Text>
+          <View style={[styles.priceCard, { marginBottom: 16 }]}>
+            <View style={styles.priceInputRow}>
+              <Text style={styles.peso}>₱</Text>
+              <TextInput
+                style={styles.priceInput}
+                value={legacyDeliveryPrice}
+                onChangeText={setLegacyDeliveryPrice}
+                keyboardType="decimal-pad"
+                placeholder="e.g. 25"
+                placeholderTextColor={COLORS.textMuted}
+              />
             </View>
           </View>
 

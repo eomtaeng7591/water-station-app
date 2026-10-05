@@ -24,6 +24,7 @@ export interface SystemSettings {
   store_id: string;
   delivery_price: number;
   walkin_price: number;
+  legacy_delivery_price: number | null;
   daily_target: number;
   monthly_target: number;
   updated_at: string;
@@ -76,6 +77,8 @@ export interface ContainerType {
   is_active: boolean;
   walkin_price: number | null;
   delivery_price: number | null;
+  available_walkin: boolean;
+  available_delivery: boolean;
 }
 
 export type ContainerTxnType = 'borrow' | 'purchase' | 'return';

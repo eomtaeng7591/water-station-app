@@ -62,11 +62,14 @@ export default function OrderScreen() {
   const [creditFlowActive, setCreditFlowActive] = useState(false);
   const [walkinPrice, setWalkinPrice] = useState(40);
   const [deliveryPrice, setDeliveryPrice] = useState(45);
+  const [legacyDeliveryPrice, setLegacyDeliveryPrice] = useState<number | null>(null);
+  const [useLegacyPrice, setUseLegacyPrice] = useState(false);
   const [selectedContainerType, setSelectedContainerType] = useState<ContainerType | null>(null);
   const containerPrice = selectedContainerType
     ? (orderType === 'DELIVERY' ? selectedContainerType.delivery_price : selectedContainerType.walkin_price)
     : null;
-  const unitPrice = containerPrice ?? (orderType === 'DELIVERY' ? deliveryPrice : walkinPrice);
+  const baseDeliveryPrice = useLegacyPrice && legacyDeliveryPrice !== null ? legacyDeliveryPrice : deliveryPrice;
+  const unitPrice = containerPrice ?? (orderType === 'DELIVERY' ? baseDeliveryPrice : walkinPrice);
   const [loading, setLoading] = useState(false);
   const [searchModal, setSearchModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -78,6 +81,7 @@ export default function OrderScreen() {
   const [riders, setRiders] = useState<Rider[]>([]);
   const [selectedRider, setSelectedRider] = useState<Rider | null>(null);
   const [containerTypes, setContainerTypes] = useState<ContainerType[]>([]);
+  const visibleContainerTypes = containerTypes.filter(ct => orderType === 'DELIVERY' ? ct.available_delivery : ct.available_walkin);
   const [containerTypesLoaded, setContainerTypesLoaded] = useState(false);
   const [containerTypesError, setContainerTypesError] = useState<string | null>(null);
   const [containerSectionOpen, setContainerSectionOpen] = useState(false);
@@ -109,6 +113,7 @@ export default function OrderScreen() {
       const s = await settingsService.getSettings();
       setWalkinPrice(s.walkin_price);
       setDeliveryPrice(s.delivery_price);
+      setLegacyDeliveryPrice(s.legacy_delivery_price);
     } catch {}
   };
 
@@ -411,6 +416,7 @@ export default function OrderScreen() {
       setSelectedContainerType(null);
       setPaymentType('CASH');
       setOrderType('WALK-IN');
+      setUseLegacyPrice(false);
       setContainerDrafts({});
       setContainerSectionOpen(false);
     } catch (e: any) {
@@ -452,7 +458,7 @@ export default function OrderScreen() {
               <TouchableOpacity
                 key={t}
                 style={[styles.typeBtn, orderType === t && styles.typeBtnActive]}
-                onPress={() => { setOrderType(t); setSelectedCustomer(null); setCreditFlowActive(false); }}
+                onPress={() => { setOrderType(t); setSelectedCustomer(null); setCreditFlowActive(false); setSelectedContainerType(null); setUseLegacyPrice(false); }}
               >
                 <Text style={[styles.typeBtnText, orderType === t && styles.typeBtnTextActive]}>
                   {t === 'WALK-IN' ? '🚶 WALK-IN' : '🏍️ DELIVERY'}
@@ -541,7 +547,31 @@ export default function OrderScreen() {
             </View>
           )}
 
-          {containerTypes.length > 0 && (
+          {orderType === 'DELIVERY' && legacyDeliveryPrice !== null && (
+            <View style={styles.section}>
+              <Text style={styles.label}>Delivery Rate</Text>
+              <View style={styles.row}>
+                <TouchableOpacity
+                  style={[styles.statusBtn, !useLegacyPrice && styles.statusBtnActive]}
+                  onPress={() => setUseLegacyPrice(false)}
+                >
+                  <Text style={[styles.statusText, !useLegacyPrice && styles.statusTextActive]}>
+                    New (₱{deliveryPrice})
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.statusBtn, useLegacyPrice && styles.statusBtnActive]}
+                  onPress={() => setUseLegacyPrice(true)}
+                >
+                  <Text style={[styles.statusText, useLegacyPrice && styles.statusTextActive]}>
+                    🏷️ Existing Customer (₱{legacyDeliveryPrice})
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
+          {visibleContainerTypes.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.label}>Container Size (optional)</Text>
               <View style={styles.containerChipRow}>
@@ -553,7 +583,7 @@ export default function OrderScreen() {
                     Store Price
                   </Text>
                 </TouchableOpacity>
-                {containerTypes.map(ct => {
+                {visibleContainerTypes.map(ct => {
                   const active = selectedContainerType?.container_type_id === ct.container_type_id;
                   const price = orderType === 'DELIVERY' ? ct.delivery_price : ct.walkin_price;
                   return (

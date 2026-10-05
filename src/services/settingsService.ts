@@ -7,6 +7,8 @@ function mapSettings(row: any): SystemSettings {
     store_id: row.store_id,
     delivery_price: Number(row.delivery_price),
     walkin_price: Number(row.walkin_price),
+    legacy_delivery_price: row.legacy_delivery_price === null || row.legacy_delivery_price === undefined
+      ? null : Number(row.legacy_delivery_price),
     daily_target: Number(row.daily_target ?? 0),
     monthly_target: Number(row.monthly_target ?? 0),
     updated_at: row.updated_at,
@@ -29,6 +31,17 @@ export const settingsService = {
     const { data, error } = await supabase
       .from('system_settings')
       .update({ delivery_price: deliveryPrice, walkin_price: walkinPrice })
+      .eq('store_id', storeId)
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+    return mapSettings(data);
+  },
+  async updateLegacyDeliveryPrice(legacyDeliveryPrice: number | null): Promise<SystemSettings> {
+    const storeId = await getCurrentStoreId();
+    const { data, error } = await supabase
+      .from('system_settings')
+      .update({ legacy_delivery_price: legacyDeliveryPrice })
       .eq('store_id', storeId)
       .select('*')
       .single();
