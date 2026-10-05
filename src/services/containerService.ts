@@ -60,6 +60,24 @@ export const containerService = {
     });
     if (error) throw new Error(error.message);
   },
+  async setPrices(
+    containerTypeId: string,
+    walkinPrice: number | null,
+    deliveryPrice: number | null
+  ): Promise<ContainerType> {
+    const { data, error } = await supabase
+      .from('container_types')
+      .update({ walkin_price: walkinPrice, delivery_price: deliveryPrice })
+      .eq('id', containerTypeId)
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+    return mapContainerType(data);
+  },
+  async deleteContainerType(containerTypeId: string): Promise<void> {
+    const { error } = await supabase.from('container_types').delete().eq('id', containerTypeId);
+    if (error) throw new Error(error.message);
+  },
   async setActive(containerTypeId: string, isActive: boolean): Promise<ContainerType> {
     const { data, error } = await supabase
       .from('container_types')

@@ -96,17 +96,10 @@ export default function OrderScreen() {
 
   const totalAmount = unitPrice * (parseInt(quantity) || 0);
 
-  useFocusEffect(useCallback(() => { loadSettings(); }, []));
+  useFocusEffect(useCallback(() => { loadSettings(); loadContainerTypes(); }, []));
 
   useEffect(() => {
     riderService.getActiveRiders().then(setRiders).catch(() => {});
-    containerService.getActiveContainerTypes()
-      .then(setContainerTypes)
-      .catch(e => {
-        console.error('Failed to load container types:', e);
-        setContainerTypesError(e?.message || 'Failed to load container sizes.');
-      })
-      .finally(() => setContainerTypesLoaded(true));
   }, []);
 
   const loadSettings = async () => {
@@ -115,6 +108,19 @@ export default function OrderScreen() {
       setWalkinPrice(s.walkin_price);
       setDeliveryPrice(s.delivery_price);
     } catch {}
+  };
+
+  const loadContainerTypes = async () => {
+    try {
+      const types = await containerService.getActiveContainerTypes();
+      setContainerTypes(types);
+      setContainerTypesError(null);
+    } catch (e: any) {
+      console.error('Failed to load container types:', e);
+      setContainerTypesError(e?.message || 'Failed to load container sizes.');
+    } finally {
+      setContainerTypesLoaded(true);
+    }
   };
 
   const loadOrderData = useCallback(async (date: string) => {

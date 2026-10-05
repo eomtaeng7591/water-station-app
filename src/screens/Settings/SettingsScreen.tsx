@@ -40,6 +40,8 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
   const [otherOpen, setOtherOpen] = useState(false);
   const [otherLabel, setOtherLabel] = useState('');
   const [addContainerLoading, setAddContainerLoading] = useState(false);
+  const [priceDrafts, setPriceDrafts] = useState<Record<string, { walkin: string; delivery: string }>>({});
+  const [priceSavingId, setPriceSavingId] = useState<string | null>(null);
 
   const [isOwner, setIsOwner] = useState(false);
   const [staff, setStaff] = useState<StoreMember[]>([]);
@@ -138,6 +140,49 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
     }
   };
 
+  const getPriceDraft = (ct: ContainerType, field: 'walkin' | 'delivery'): string => {
+    const draft = priceDrafts[ct.container_type_id];
+    if (draft) return draft[field];
+    const value = field === 'walkin' ? ct.walkin_price : ct.delivery_price;
+    return value === null ? '' : String(value);
+  };
+
+  const setPriceDraft = (containerTypeId: string, field: 'walkin' | 'delivery', value: string, ct: ContainerType) => {
+    setPriceDrafts(d => {
+      const current = d[containerTypeId] ?? {
+        walkin: ct.walkin_price === null ? '' : String(ct.walkin_price),
+        delivery: ct.delivery_price === null ? '' : String(ct.delivery_price),
+      };
+      return { ...d, [containerTypeId]: { ...current, [field]: value } };
+    });
+  };
+
+  const handleSavePrice = async (ct: ContainerType) => {
+    const draft = priceDrafts[ct.container_type_id];
+    const walkinStr = draft ? draft.walkin : getPriceDraft(ct, 'walkin');
+    const deliveryStr = draft ? draft.delivery : getPriceDraft(ct, 'delivery');
+    const walkin = walkinStr.trim() === '' ? null : parseFloat(walkinStr);
+    const delivery = deliveryStr.trim() === '' ? null : parseFloat(deliveryStr);
+    if ((walkin !== null && isNaN(walkin)) || (delivery !== null && isNaN(delivery))) {
+      showAlert('Error', 'Please enter valid prices (or leave blank to use the store price).');
+      return;
+    }
+    setPriceSavingId(ct.container_type_id);
+    try {
+      await containerService.setPrices(ct.container_type_id, walkin, delivery);
+      setPriceDrafts(d => {
+        const next = { ...d };
+        delete next[ct.container_type_id];
+        return next;
+      });
+      loadContainers();
+    } catch (e: any) {
+      showAlert('Error', e.message || 'Failed to save price.');
+    } finally {
+      setPriceSavingId(null);
+    }
+  };
+
   const handleToggleContainerActive = (ct: ContainerType) => {
     const label = ct.is_active ? 'Deactivate' : 'Activate';
     showAlert(`${label} "${ct.label}"?`, ct.is_active ? 'Past transactions are kept.' : undefined, [
@@ -154,6 +199,31 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
         },
       },
     ]);
+  };
+
+  const handleDeleteContainer = (ct: ContainerType) => {
+    showAlert(
+      `Delete "${ct.label}"?`,
+      'This cannot be undone. Sizes used in any past order, borrow, or restock can\'t be deleted — deactivate them instead.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await containerService.deleteContainerType(ct.container_type_id);
+              loadContainers();
+            } catch (e: any) {
+              const msg = /foreign key|violates|referenced/i.test(e.message || '')
+                ? `"${ct.label}" has past orders or transactions and can't be deleted. Use Deactivate instead.`
+                : (e.message || 'Failed to delete.');
+              showAlert('Error', msg);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleSavePrices = async () => {
@@ -378,7 +448,8 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🧴 Container Management</Text>
           <Text style={styles.sectionNote}>
-            Manage the container sizes your store offers. Adjust stock quantities from Container Inventory (Restock / Dispose).
+            Manage the container sizes your store offers. Set a price per size so staff can switch sizes in Orders without
+            changing the store's base price. Stock quantities are adjusted from Container Inventory (Restock / Dispose).
           </Text>
 
           {containersLoading ? (
@@ -387,17 +458,59 @@ export default function SettingsScreen({ onLogout }: { onLogout?: () => void }) 
             <Text style={styles.emptyText}>No container sizes registered yet.</Text>
           ) : (
             containers.map(ct => (
-              <View key={ct.container_type_id} style={[styles.containerRow, !ct.is_active && styles.containerRowInactive]}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.containerLabel}>{ct.label}</Text>
-                  {!ct.is_active && <Text style={styles.containerInactiveText}>Inactive</Text>}
+              <View key={ct.container_type_id} style={[styles.containerCard, !ct.is_active && styles.containerRowInactive]}>
+                <View style={styles.containerRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.containerLabel}>{ct.label}</Text>
+                    {!ct.is_active && <Text style={styles.containerInactiveText}>Inactive</Text>}
+                  </View>
+                  <Text style={styles.containerQtyDisplay}>{ct.owned_qty} in stock</Text>
+                  <TouchableOpacity style={styles.containerToggleBtn} onPress={() => handleToggleContainerActive(ct)}>
+                    <Text style={[styles.containerToggleBtnText, { color: ct.is_active ? COLORS.danger : COLORS.primary }]}>
+                      {ct.is_active ? 'Deactivate' : 'Activate'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.containerToggleBtn} onPress={() => handleDeleteContainer(ct)}>
+                    <Text style={[styles.containerToggleBtnText, { color: COLORS.danger }]}>Delete</Text>
+                  </TouchableOpacity>
                 </View>
-                <Text style={styles.containerQtyDisplay}>{ct.owned_qty}</Text>
-                <TouchableOpacity style={styles.containerToggleBtn} onPress={() => handleToggleContainerActive(ct)}>
-                  <Text style={[styles.containerToggleBtnText, { color: ct.is_active ? COLORS.danger : COLORS.primary }]}>
-                    {ct.is_active ? 'Deactivate' : 'Activate'}
-                  </Text>
-                </TouchableOpacity>
+
+                {ct.is_active && (
+                  <View style={styles.priceRowInline}>
+                    <View style={styles.priceFieldGroup}>
+                      <Text style={styles.priceFieldLabel}>Walk-in ₱</Text>
+                      <TextInput
+                        style={styles.priceFieldInput}
+                        value={getPriceDraft(ct, 'walkin')}
+                        onChangeText={(v) => setPriceDraft(ct.container_type_id, 'walkin', v, ct)}
+                        keyboardType="decimal-pad"
+                        placeholder="Store price"
+                        placeholderTextColor={COLORS.textMuted}
+                      />
+                    </View>
+                    <View style={styles.priceFieldGroup}>
+                      <Text style={styles.priceFieldLabel}>Delivery ₱</Text>
+                      <TextInput
+                        style={styles.priceFieldInput}
+                        value={getPriceDraft(ct, 'delivery')}
+                        onChangeText={(v) => setPriceDraft(ct.container_type_id, 'delivery', v, ct)}
+                        keyboardType="decimal-pad"
+                        placeholder="Store price"
+                        placeholderTextColor={COLORS.textMuted}
+                      />
+                    </View>
+                    <TouchableOpacity
+                      style={styles.containerSaveBtn}
+                      onPress={() => handleSavePrice(ct)}
+                      disabled={priceSavingId === ct.container_type_id}
+                    >
+                      {priceSavingId === ct.container_type_id
+                        ? <ActivityIndicator color={COLORS.primary} size="small" />
+                        : <Text style={styles.containerSaveBtnText}>Save</Text>
+                      }
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             ))
           )}
@@ -616,15 +729,17 @@ const styles = StyleSheet.create({
   navCardTitle: { fontSize: 15, fontWeight: '700', color: COLORS.primaryDark },
   navCardSub: { fontSize: 12, color: COLORS.primary, marginTop: 2 },
   navCardArrow: { fontSize: 24, color: COLORS.primary, fontWeight: '700' },
+  containerCard: {
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.background,
+  },
   containerRow: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.background,
   },
   containerRowInactive: { opacity: 0.5 },
   containerLabel: { fontSize: 14, fontWeight: '600', color: COLORS.textPrimary },
   containerInactiveText: { fontSize: 11, color: COLORS.textMuted, marginTop: 1 },
   containerQtyDisplay: {
-    minWidth: 32, fontSize: 15, fontWeight: '700', color: COLORS.textPrimary, textAlign: 'right',
+    fontSize: 12, color: COLORS.textMuted,
   },
   containerSaveBtn: {
     borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8,
@@ -633,6 +748,14 @@ const styles = StyleSheet.create({
   containerSaveBtnText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
   containerToggleBtn: { paddingHorizontal: 8, paddingVertical: 8 },
   containerToggleBtnText: { fontSize: 12, fontWeight: '600', color: COLORS.textSecondary },
+  priceRowInline: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 8 },
+  priceFieldGroup: { flex: 1 },
+  priceFieldLabel: { fontSize: 11, color: COLORS.textMuted, marginBottom: 4 },
+  priceFieldInput: {
+    borderWidth: 1, borderColor: COLORS.border, borderRadius: 8,
+    paddingVertical: 8, paddingHorizontal: 10, fontSize: 14, color: COLORS.textPrimary,
+    backgroundColor: COLORS.background,
+  },
   containerAddRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12 },
   containerAddInput: {
     borderWidth: 1, borderColor: COLORS.border, borderRadius: 8,
