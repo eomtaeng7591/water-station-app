@@ -85,6 +85,8 @@ export default function OrderScreen() {
 
   const [todayOrders, setTodayOrders] = useState<Order[]>([]);
   const [pendingDeliveries, setPendingDeliveries] = useState<Order[]>([]);
+  const [bulkExcluded, setBulkExcluded] = useState<Set<string>>(new Set());
+  const [bulkCompleting, setBulkCompleting] = useState(false);
   const [listLoading, setListLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filterDate, setFilterDate] = useState(dateStr(new Date()));
@@ -132,6 +134,12 @@ export default function OrderScreen() {
       ]);
       setTodayOrders(orders);
       setPendingDeliveries(pending);
+      const pendingIds = new Set(pending.map(o => o.order_id));
+      setBulkExcluded(prev => {
+        const next = new Set<string>();
+        prev.forEach(id => { if (pendingIds.has(id)) next.add(id); });
+        return next;
+      });
     } catch (e) {
       console.error(e);
     } finally {
@@ -190,6 +198,45 @@ export default function OrderScreen() {
               await loadOrderData(filterDate);
             } catch (e: any) {
               showAlert('Error', e.message || 'Failed to update');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const toggleBulkExcluded = (orderId: string) => {
+    setBulkExcluded(prev => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  };
+
+  const handleCompleteAllPending = () => {
+    const selected = pendingDeliveries.filter(o => !bulkExcluded.has(o.order_id));
+    if (selected.length === 0) return;
+    const total = selected.reduce((sum, o) => sum + Number(o.total_amount), 0);
+    const skipped = pendingDeliveries.length - selected.length;
+    showAlert(
+      'Complete All Checked Deliveries',
+      `Mark ${selected.length} ${selected.length === 1 ? 'delivery' : 'deliveries'} as completed and ₱${total.toLocaleString()} total as received?`
+        + (skipped > 0 ? `\n\n${skipped} unchecked ${skipped === 1 ? 'delivery is' : 'deliveries are'} left pending.` : ''),
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Complete All',
+          onPress: async () => {
+            setBulkCompleting(true);
+            try {
+              await Promise.all(selected.map(o => orderService.updateDeliveryStatus(o.order_id, 'COMPLETED')));
+              await loadOrderData(filterDate);
+            } catch (e: any) {
+              showAlert('Error', e.message || 'Failed to complete some deliveries');
+              await loadOrderData(filterDate);
+            } finally {
+              setBulkCompleting(false);
             }
           },
         },
@@ -780,11 +827,39 @@ export default function OrderScreen() {
 
           {pendingDeliveries.length > 0 && filterDate === todayDateStr && (
             <View style={styles.pendingSection}>
-              <Text style={styles.pendingSectionTitle}>
-                ⏳ Pending Deliveries: {pendingDeliveries.length}
+              <View style={styles.pendingSectionHeader}>
+                <Text style={styles.pendingSectionTitle}>
+                  ⏳ Pending Deliveries: {pendingDeliveries.length}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.completeAllBtn, bulkCompleting && { opacity: 0.6 }]}
+                  onPress={handleCompleteAllPending}
+                  disabled={bulkCompleting || pendingDeliveries.length === bulkExcluded.size}
+                >
+                  {bulkCompleting ? (
+                    <ActivityIndicator color="#fff" size="small" />
+                  ) : (
+                    <Text style={styles.completeAllBtnText}>
+                      ✓ Complete All ({pendingDeliveries.length - bulkExcluded.size})
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+              <Text style={styles.pendingSectionNote}>
+                Uncheck anyone who hasn't paid yet (e.g. credit), then Complete All for the rest.
               </Text>
-              {pendingDeliveries.map(order => (
+              {pendingDeliveries.map(order => {
+                const checked = !bulkExcluded.has(order.order_id);
+                return (
                 <View key={order.order_id} style={styles.pendingCard}>
+                  <TouchableOpacity
+                    style={styles.pendingCheckbox}
+                    onPress={() => toggleBulkExcluded(order.order_id)}
+                  >
+                    <View style={[styles.checkboxBox, checked && styles.checkboxBoxChecked]}>
+                      {checked && <Text style={styles.checkboxMark}>✓</Text>}
+                    </View>
+                  </TouchableOpacity>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.pendingCustomer}>
                       {order.customer?.customer_name ?? 'No Customer'}
@@ -803,7 +878,8 @@ export default function OrderScreen() {
                     <Text style={styles.completeBtnText}>Done</Text>
                   </TouchableOpacity>
                 </View>
-              ))}
+                );
+              })}
             </View>
           )}
 
@@ -1086,11 +1162,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF7ED', borderRadius: 12, padding: 14,
     marginBottom: 16, borderWidth: 1, borderColor: '#FCD34D',
   },
-  pendingSectionTitle: { fontSize: 14, fontWeight: '700', color: COLORS.delivery, marginBottom: 10 },
+  pendingSectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  pendingSectionTitle: { fontSize: 14, fontWeight: '700', color: COLORS.delivery },
+  pendingSectionNote: { fontSize: 11, color: COLORS.textMuted, marginTop: 4, marginBottom: 10 },
+  completeAllBtn: { backgroundColor: COLORS.primary, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 7 },
+  completeAllBtnText: { color: '#fff', fontWeight: '700', fontSize: 12 },
   pendingCard: {
     flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.surface,
     borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border,
   },
+  pendingCheckbox: { paddingRight: 12, paddingVertical: 4 },
+  checkboxBox: {
+    width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: COLORS.border,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background,
+  },
+  checkboxBoxChecked: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  checkboxMark: { color: '#fff', fontSize: 14, fontWeight: '700' },
   pendingCustomer: { fontSize: 15, fontWeight: '600', color: COLORS.textPrimary },
   pendingSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
   pendingTime: { fontSize: 11, color: COLORS.textMuted, marginTop: 2 },
