@@ -4,6 +4,7 @@ import {
   TouchableOpacity, Dimensions, ScrollView,
 } from 'react-native';
 import Svg, { Path, Circle, Line, Text as SvgText, Defs, LinearGradient, Stop, Rect } from 'react-native-svg';
+import { useNavigation } from '@react-navigation/native';
 import { reportService } from '../../services/reportService';
 import { TrendPoint } from '../../types';
 import { COLORS } from '../../constants';
@@ -31,6 +32,12 @@ function buildAreaPath(points: { x: number; y: number }[], chartBottom: number):
   return `${line} L${points[points.length - 1].x},${chartBottom} L${points[0].x},${chartBottom} Z`;
 }
 
+function formatRowDate(dateStr: string): string {
+  return new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+  });
+}
+
 function dayLabel(dateStr: string, range: Range): string {
   const [, m, d] = dateStr.split('-');
   if (range === 7) {
@@ -41,6 +48,7 @@ function dayLabel(dateStr: string, range: Range): string {
 }
 
 export default function WeeklyChart() {
+  const navigation = useNavigation<any>();
   const [range, setRange] = useState<Range>(7);
   const [data, setData] = useState<TrendPoint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -215,6 +223,29 @@ export default function WeeklyChart() {
               </Text>
             </View>
           </View>
+
+          <View style={styles.tableHeader}>
+            <Text style={[styles.th, styles.colDate]}>Date</Text>
+            <Text style={[styles.th, styles.colNum]}>Orders</Text>
+            <Text style={[styles.th, styles.colNum]}>Walk-in</Text>
+            <Text style={[styles.th, styles.colNum]}>Delivery</Text>
+            <Text style={[styles.th, styles.colNum]}>Total</Text>
+          </View>
+          {[...data].reverse().map(d => (
+            <TouchableOpacity
+              key={d.date}
+              style={styles.tableRow}
+              onPress={() => navigation.navigate('Orders', { date: d.date, ts: Date.now() })}
+            >
+              <Text style={[styles.td, styles.colDate]}>{formatRowDate(d.date)}</Text>
+              <Text style={[styles.td, styles.colNum]}>{d.order_count}</Text>
+              <Text style={[styles.td, styles.colNum]}>₱{d.walkin.toLocaleString()}</Text>
+              <Text style={[styles.td, styles.colNum]}>₱{d.delivery.toLocaleString()}</Text>
+              <Text style={[styles.td, styles.colNum, { fontWeight: '700', color: COLORS.textPrimary }]}>
+                ₱{d.total.toLocaleString()}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </>
       )}
     </View>
@@ -248,4 +279,16 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendDot: { width: 10, height: 10, borderRadius: 5 },
   legendText: { fontSize: 11, color: COLORS.textSecondary },
+  tableHeader: {
+    flexDirection: 'row', marginTop: 16, paddingBottom: 6,
+    borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  th: { fontSize: 10, fontWeight: '700', color: COLORS.textMuted },
+  tableRow: {
+    flexDirection: 'row', paddingVertical: 8,
+    borderBottomWidth: 1, borderBottomColor: COLORS.background,
+  },
+  td: { fontSize: 12, color: COLORS.textSecondary },
+  colDate: { flex: 1.6 },
+  colNum: { flex: 1, textAlign: 'right' },
 });

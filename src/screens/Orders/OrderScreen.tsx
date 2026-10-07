@@ -5,7 +5,7 @@ import {
   KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView, SafeAreaProvider } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useRoute } from '@react-navigation/native';
 import { COLORS } from '../../constants';
 import { settingsService } from '../../services/settingsService';
 import { customerService } from '../../services/customerService';
@@ -51,6 +51,7 @@ function shiftDate(s: string, n: number) {
 }
 
 export default function OrderScreen() {
+  const route = useRoute<any>();
   const [activeView, setActiveView] = useState<ActiveView>('form');
 
   const [orderType, setOrderType] = useState<OrderType>('WALK-IN');
@@ -155,6 +156,13 @@ export default function OrderScreen() {
   useEffect(() => {
     if (activeView === 'today') loadOrderData(filterDate);
   }, [activeView, filterDate, loadOrderData]);
+
+  useEffect(() => {
+    if (typeof route.params?.date === 'string') {
+      setFilterDate(route.params.date);
+      setActiveView('today');
+    }
+  }, [route.params?.ts]);
 
   useEffect(() => {
     if (lastSyncResult && lastSyncResult.synced > 0) {
