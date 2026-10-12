@@ -238,6 +238,7 @@ export default function ContainerSummaryScreen() {
         <View style={{ width: 60 }} />
       </View>
 
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
         style={styles.container}
         keyboardShouldPersistTaps="handled"
@@ -430,6 +431,7 @@ export default function ContainerSummaryScreen() {
           )}
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
         <KeyboardAvoidingView
