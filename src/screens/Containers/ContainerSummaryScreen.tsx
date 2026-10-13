@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl,
   Modal, TextInput, KeyboardAvoidingView, Platform,
@@ -21,6 +21,7 @@ type MergedContainer = ContainerType & Partial<Pick<StoreContainerSummary, 'out_
 
 export default function ContainerSummaryScreen() {
   const navigation = useNavigation<any>();
+  const scrollRef = useRef<ScrollView>(null);
   const [containers, setContainers] = useState<MergedContainer[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -240,6 +241,7 @@ export default function ContainerSummaryScreen() {
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
+        ref={scrollRef}
         style={styles.container}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
@@ -394,7 +396,10 @@ export default function ContainerSummaryScreen() {
             })}
             <TouchableOpacity
               style={[styles.presetChip, otherOpen && styles.presetChipActive]}
-              onPress={() => setOtherOpen(o => !o)}
+              onPress={() => {
+                setOtherOpen(o => !o);
+                setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 200);
+              }}
               disabled={addContainerLoading}
             >
               <Text style={[styles.presetChipText, otherOpen && styles.presetChipTextActive]}>Other</Text>
@@ -410,6 +415,7 @@ export default function ContainerSummaryScreen() {
                 placeholder="e.g. 3L"
                 placeholderTextColor={COLORS.textMuted}
                 autoFocus
+                onFocus={() => setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 150)}
               />
               <TouchableOpacity
                 style={styles.priceSaveBtn}
